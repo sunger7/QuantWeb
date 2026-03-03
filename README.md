@@ -43,7 +43,7 @@ akshare_proj/
 ## 页面截图
 
 ### 首页
-![首页](picture/index.png)
+![首页]([picture/index.png](https://github.com/sunger7/QuantWeb/blob/main/picture/index.png))
 
 ### 策略分析
 ![策略分析](picture/策略分析.png)
