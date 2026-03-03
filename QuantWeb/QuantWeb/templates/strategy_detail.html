@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ stock_name }}（{{ stock_code }}）- {{ strategy_name }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+        .navbar { background: #1a1a2e; color: #fff; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+        .navbar h1 { font-size: 1.4em; }
+        .navbar a { color: #aaa; text-decoration: none; margin-left: 24px; font-size: 0.95em; }
+        .navbar a:hover { color: #fff; }
+        .container { max-width: 1400px; margin: 24px auto; padding: 0 16px; }
+        .header { margin-bottom: 20px; }
+        .header h2 { font-size: 1.5em; }
+        .header .sub { color: #888; font-size: 0.95em; margin-top: 4px; }
+
+        .tabs { display: flex; border-bottom: 2px solid #4361ee; margin-bottom: 0; }
+        .tab-btn { padding: 12px 28px; background: #e8ecf1; border: none; cursor: pointer; font-size: 0.95em; font-weight: 600; color: #555; border-radius: 8px 8px 0 0; margin-right: 4px; }
+        .tab-btn.active { background: #4361ee; color: #fff; }
+        .tab-panel { display: none; background: #fff; border-radius: 0 0 12px 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 32px; }
+        .tab-panel.active { display: block; }
+
+        #kline-chart { width: 100%; height: 600px; }
+        .report-frame { width: 100%; min-height: 800px; border: none; border-radius: 8px; }
+        .no-data { text-align: center; padding: 60px; color: #999; font-size: 1.1em; }
+
+        .comp-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        .comp-table th { background: #f8f9fa; padding: 12px 16px; text-align: left; font-size: 0.85em; color: #666; border-bottom: 2px solid #e1e4e8; }
+        .comp-table td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 0.9em; }
+        .comp-table tr:hover { background: #f5f7ff; }
+        .comp-table .positive { color: #e74c3c; font-weight: 600; }
+        .comp-table .negative { color: #27ae60; font-weight: 600; }
+        .comp-table .current-strategy { background: #eef2ff; }
+        #comp-chart { width: 100%; height: 400px; margin-top: 16px; }
+        .wl-card { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 16px; }
+        .wl-item { background: #f8f9fa; border-radius: 10px; padding: 16px; cursor: pointer; transition: all .2s; border: 2px solid transparent; }
+        .wl-item:hover { border-color: #4361ee; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(67,97,238,0.15); }
+        .wl-item .wl-code { font-weight: 700; font-size: 1.05em; }
+        .wl-item .wl-name { color: #888; font-size: 0.85em; margin-top: 2px; }
+        .wl-item .wl-ret { font-size: 1.2em; font-weight: 700; margin-top: 8px; }
+        .wl-item.current { border-color: #4361ee; background: #eef2ff; }
+        .default-badge { display: inline-block; background: #4361ee; color: #fff; font-size: 0.7em; padding: 2px 8px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
+        .set-default-btn { padding: 3px 10px; font-size: 0.78em; border: 1px solid #4361ee; border-radius: 5px; background: #fff; color: #4361ee; cursor: pointer; transition: all .2s; }
+        .set-default-btn:hover { background: #4361ee; color: #fff; }
+        .set-default-btn.active { background: #4361ee; color: #fff; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1><a href="{% url 'index' %}" style="color:#fff;text-decoration:none;">📈 量化交易系统</a></h1>
+        <div>
+            <a href="{% url 'index' %}">🏠 首页</a>
+            <a href="{% url 'strategy_analysis' strategy_id %}">📊 {{ strategy_name }}</a>
+            <a href="{% url 'stock_select' %}">📋 股票选择</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <h2>{{ stock_name }}（{{ stock_code }}）</h2>
+                <button id="update-data-btn" onclick="updateStockData()" style="background:#27ae60;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.82em;">📥 更新数据</button>
+                <span id="update-status" style="color:#4361ee;font-size:0.82em;display:none;"></span>
+                <div class="sub" style="width:100%;">策略：{{ strategy_name }}</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <label style="font-size:0.85em;font-weight:600;color:#555;">起始</label>
+                <input id="recalc-start" type="date" value="2023-01-01" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:0.85em;">
+                <label style="font-size:0.85em;font-weight:600;color:#555;">结束</label>
+                <input id="recalc-end" type="date" value="{{ today }}" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:0.85em;">
+                <button id="recalc-current-btn" onclick="recalcStrategy('{{ strategy_id }}')" style="background:#4361ee;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.9em;">🔄 重算当前策略</button>
+                <button id="recalc-all-btn" onclick="recalcStrategy('')" style="background:#e74c3c;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.9em;">🔄 重算所有策略</button>
+                <span id="recalc-status" style="color:#4361ee;font-size:0.85em;display:none;"></span>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('kline', this)">线图</button>
+            <button class="tab-btn" onclick="switchTab('compare', this)">策略对比</button>
+            <button class="tab-btn" onclick="switchTab('report', this)">回测报告</button>
+        </div>
+
+        <!-- K线图 -->
+        <div class="tab-panel active" id="panel-kline">
+            <div id="kline-chart"></div>
+        </div>
+
+        <!-- 策略对比 -->
+        <div class="tab-panel" id="panel-compare">
+            <h3 style="margin-bottom:16px;">各策略回测对比 — {{ stock_name }}（{{ stock_code }}）</h3>
+            <table class="comp-table">
+                <thead>
+                    <tr>
+                        <th>策略</th>
+                        <th>总收益率(%)</th>
+                        <th>交易次数</th>
+                        <th>盈利次数</th>
+                        <th>亏损次数</th>
+                        <th>胜率(%)</th>
+                        <th>总盈亏</th>
+                        <th>默认策略</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comp in strategy_comparison %}
+                    <tr class="{% if comp.id == strategy_id %}current-strategy{% endif %}">
+                        <td><strong>{{ comp.name }}</strong></td>
+                        <td class="{% if comp.total_return_pct != None %}{% if comp.total_return_pct >= 0 %}positive{% else %}negative{% endif %}{% endif %}">
+                            {% if comp.total_return_pct != None %}{{ comp.total_return_pct }}%{% else %}—{% endif %}
+                        </td>
+                        <td>{{ comp.trade_count }}</td>
+                        <td>{{ comp.win_count }}</td>
+                        <td>{{ comp.loss_count }}</td>
+                        <td>{% if comp.win_rate != None %}{{ comp.win_rate }}%{% else %}—{% endif %}</td>
+                        <td class="{% if comp.total_pnl != None %}{% if comp.total_pnl >= 0 %}positive{% else %}negative{% endif %}{% endif %}">
+                            {% if comp.total_pnl != None %}{{ comp.total_pnl }}{% else %}—{% endif %}
+                        </td>
+                        <td>
+                            <button class="set-default-btn{% if comp.id == stock_default_strategy %} active{% endif %}"
+                                    id="default-btn-{{ comp.id }}"
+                                    onclick="setDefaultStrategy('{{ comp.id }}')">
+                                {% if comp.id == stock_default_strategy %}✅ 默认{% else %}设为默认{% endif %}
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" style="text-align:center;color:#999;padding:24px;">暂无对比数据，请先运行策略回测。</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div id="comp-chart"></div>
+        </div>
+
+        <!-- 回测报告 -->
+        <div class="tab-panel" id="panel-report">
+            {% if report_url %}
+            <iframe class="report-frame" src="{{ report_url }}"></iframe>
+            {% else %}
+            <div class="no-data">暂无回测报告，请先运行策略回测生成报告文件。</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+    // 页面加载时从URL参数恢复日期
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('start_date')) document.getElementById('recalc-start').value = params.get('start_date');
+        if (params.get('end_date')) document.getElementById('recalc-end').value = params.get('end_date');
+    })();
+
+    function updateStockData() {
+        var btn = document.getElementById('update-data-btn');
+        var statusEl = document.getElementById('update-status');
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.textContent = '📥 更新中...';
+        statusEl.style.display = 'inline';
+        statusEl.textContent = '正在更新数据...';
+        statusEl.style.color = '#4361ee';
+        fetch("{% url 'update_single_stock' %}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({code: '{{ stock_code }}'})
+        })
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.textContent = '📥 更新数据';
+            if (data.status === 'ok') {
+                statusEl.textContent = '✅ ' + data.message;
+                statusEl.style.color = '#27ae60';
+                setTimeout(function() { window.location.reload(); }, 1500);
+            } else {
+                statusEl.textContent = '❌ ' + data.message;
+                statusEl.style.color = '#e74c3c';
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.textContent = '📥 更新数据';
+            statusEl.textContent = '❌ 请求失败: ' + err;
+            statusEl.style.color = '#e74c3c';
+        });
+    }
+
+    function recalcStrategy(strategyId) {
+        var statusEl = document.getElementById('recalc-status');
+        var btnCurrent = document.getElementById('recalc-current-btn');
+        var btnAll = document.getElementById('recalc-all-btn');
+        var label = strategyId ? '当前策略' : '所有策略';
+        if (!confirm('确认要重新计算' + label + '的回测结果？')) return;
+        statusEl.style.display = 'inline';
+        statusEl.textContent = '⏳ 后台计算中…';
+        statusEl.style.color = '#4361ee';
+        btnCurrent.disabled = true;
+        btnAll.disabled = true;
+        btnCurrent.style.opacity = '0.6';
+        btnAll.style.opacity = '0.6';
+        var startDate = document.getElementById('recalc-start').value;
+        var endDate = document.getElementById('recalc-end').value;
+        var url = '/start_recalc_task/{{ strategy_id }}/{{ stock_code }}/?force_recalc=1';
+        if (strategyId) url += '&recalc_strategy=' + strategyId;
+        if (startDate) url += '&start_date=' + startDate;
+        if (endDate) url += '&end_date=' + endDate;
+        fetch(url)
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.task_id) {
+                    // 轮询任务状态
+                    var pollTimer = setInterval(function() {
+                        fetch("{% url 'task_status' %}?task_id=" + data.task_id)
+                        .then(function(r){ return r.json(); })
+                        .then(function(st) {
+                            if (st.status === 'done') {
+                                clearInterval(pollTimer);
+                                statusEl.textContent = '✅ 计算完成，正在刷新…';
+                                statusEl.style.color = '#27ae60';
+                                var reloadUrl = window.location.pathname;
+                                var params = [];
+                                if (startDate) params.push('start_date=' + startDate);
+                                if (endDate) params.push('end_date=' + endDate);
+                                if (params.length) reloadUrl += '?' + params.join('&');
+                                setTimeout(function() { window.location.href = reloadUrl; }, 500);
+                            } else if (st.status === 'error') {
+                                clearInterval(pollTimer);
+                                statusEl.textContent = '❌ 计算出错: ' + (st.result || '未知错误');
+                                statusEl.style.color = '#e74c3c';
+                                btnCurrent.disabled = false;
+                                btnAll.disabled = false;
+                                btnCurrent.style.opacity = '1';
+                                btnAll.style.opacity = '1';
+                            }
+                        })
+                        .catch(function() {});
+                    }, 1500);
+                } else {
+                    statusEl.textContent = '❌ ' + (data.message || '启动任务失败');
+                    statusEl.style.color = '#e74c3c';
+                    btnCurrent.disabled = false;
+                    btnAll.disabled = false;
+                    btnCurrent.style.opacity = '1';
+                    btnAll.style.opacity = '1';
+                }
+            })
+            .catch(function(err) {
+                statusEl.textContent = '❌ 计算出错: ' + err;
+                statusEl.style.color = '#e74c3c';
+                btnCurrent.disabled = false;
+                btnAll.disabled = false;
+                btnCurrent.style.opacity = '1';
+                btnAll.style.opacity = '1';
+            });
+    }
+
+    function switchTab(name, btn) {
+        document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('panel-' + name).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    // 设为默认策略：调用API保存
+    function setDefaultStrategy(strategyId) {
+        fetch("{% url 'watchlist_api' %}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'set_default', code: '{{ stock_code }}', strategy_id: strategyId})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'ok') {
+                // 更新所有按钮状态
+                document.querySelectorAll('.set-default-btn').forEach(function(btn) {
+                    btn.classList.remove('active');
+                    btn.textContent = '设为默认';
+                });
+                var activeBtn = document.getElementById('default-btn-' + strategyId);
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                    activeBtn.textContent = '✅ 默认';
+                }
+            }
+        });
+    }
+
+    // ── ECharts K线图 ──
+    const rawKline = {{ kline_data|safe }};
+    const rawTrades = {{ trade_data|safe }};
+
+    // 适配 orders.json 结构
+    function orderToTradePoint(order) {
+        // 只处理已成交的订单
+        if (order.status !== 'filled') return null;
+        // 买单
+        if (order.side === 'buy') {
+            return {
+                type: 'buy',
+                time: order.created_at,
+                price: order.avg_price
+            };
+        }
+        // 卖单
+        if (order.side === 'sell') {
+            return {
+                type: 'sell',
+                time: order.created_at,
+                price: order.avg_price
+            };
+        }
+        return null;
+    }
+    const tradePoints = rawTrades.map(orderToTradePoint).filter(x => x);
+
+    if (rawKline.length > 0) {
+        const dates = rawKline.map(r => r.date);
+        const ohlc = rawKline.map(r => [r.open, r.close, r.low, r.high]);
+        const volumes = rawKline.map(r => r.volume);
+
+        // 买卖点标记（orders JSON 格式：side, created_at, avg_price）
+        const buyPoints = [];
+        const sellPoints = [];
+        function isoToDate(iso) {
+            // "2023-05-03T16:00:00.000Z" → "2023-05-04" (UTC+8 次日) 或精确匹配日期
+            const d = new Date(iso);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        function findClosestIdx(dateStr) {
+            let idx = dates.indexOf(dateStr);
+            if (idx >= 0) return idx;
+            // 尝试不带前导零的匹配
+            for (let i = 0; i < dates.length; i++) {
+                if (dates[i].startsWith(dateStr)) return i;
+            }
+            return -1;
+        }
+        tradePoints.forEach(t => {
+            if (t.type === 'buy' && t.time && t.price) {
+                const entryDate = isoToDate(t.time);
+                const idx = findClosestIdx(entryDate);
+                if (idx >= 0) {
+                    buyPoints.push({
+                        coord: [idx, t.price],
+                        value: t.price,
+                        label: { show: false },
+                        itemStyle: { color: '#e74c3c' },
+                        symbol: 'triangle',
+                        symbolSize: 12,
+                    });
+                }
+            }
+            if (t.type === 'sell' && t.time && t.price) {
+                const exitDate = isoToDate(t.time);
+                const idx = findClosestIdx(exitDate);
+                if (idx >= 0) {
+                    sellPoints.push({
+                        coord: [idx, t.price],
+                        value: t.price,
+                        label: { show: false },
+                        itemStyle: { color: '#27ae60' },
+                        symbol: 'pin',
+                        symbolSize: 12,
+                    });
+                }
+            }
+        });
+
+        // 计算均线
+        const closePrices = rawKline.map(r => r.close);
+        function calcMA(prices, period) {
+            const result = [];
+            for (let i = 0; i < prices.length; i++) {
+                if (i < period - 1) { result.push(null); continue; }
+                let sum = 0;
+                for (let j = 0; j < period; j++) sum += prices[i - j];
+                result.push(+(sum / period).toFixed(2));
+            }
+            return result;
+        }
+        const ma5  = calcMA(closePrices, 5);
+        const ma10 = calcMA(closePrices, 10);
+        const ma30 = calcMA(closePrices, 30);
+        const ma60 = calcMA(closePrices, 60);
+        const maColors = { 'MA5': '#f39c12', 'MA10': '#e74c8b', 'MA30': '#3498db', 'MA60': '#9b59b6' };
+
+        // 构建买卖点 scatter 数据（与 dates 等长的数组，无数据处填 null）
+        const buyScatter = new Array(dates.length).fill(null);
+        const sellScatter = new Array(dates.length).fill(null);
+        tradePoints.forEach(t => {
+            if (t.type === 'buy' && t.time && t.price) {
+                const idx = findClosestIdx(isoToDate(t.time));
+                if (idx >= 0) buyScatter[idx] = t.price;
+            }
+            if (t.type === 'sell' && t.time && t.price) {
+                const idx = findClosestIdx(isoToDate(t.time));
+                if (idx >= 0) sellScatter[idx] = t.price;
+            }
+        });
+
+        const chart = echarts.init(document.getElementById('kline-chart'));
+        const option = {
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'cross' },
+            },
+            legend: {
+                data: ['K线', 'MA5', 'MA10', 'MA30', 'MA60', '买入', '卖出', '成交量'],
+                selected: { 'MA5': true, 'MA10': true, 'MA30': true, 'MA60': false },
+            },
+            grid: [
+                { left: 60, right: 40, top: 60, height: '55%' },
+                { left: 60, right: 40, top: '75%', height: '15%' },
+            ],
+            xAxis: [
+                { type: 'category', data: dates, gridIndex: 0, boundaryGap: true, axisLine: { lineStyle: { color: '#ccc' } }, axisLabel: { fontSize: 11 } },
+                { type: 'category', data: dates, gridIndex: 1, boundaryGap: true, axisLabel: { show: false } },
+            ],
+            yAxis: [
+                { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: '#eee' } } },
+                { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { show: false } },
+            ],
+            dataZoom: [
+                { type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 },
+                { type: 'slider', xAxisIndex: [0, 1], start: 0, end: 100, top: '93%' },
+            ],
+            series: [
+                {
+                    name: 'K线',
+                    type: 'candlestick',
+                    data: ohlc,
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
+                    itemStyle: {
+                        color: '#e74c3c',
+                        color0: '#27ae60',
+                        borderColor: '#e74c3c',
+                        borderColor0: '#27ae60',
+                    },
+                },
+                {
+                    name: 'MA5', type: 'line', data: ma5, xAxisIndex: 0, yAxisIndex: 0,
+                    smooth: true, showSymbol: false, lineStyle: { width: 1.5, color: maColors['MA5'] },
+                    itemStyle: { color: maColors['MA5'] },
+                },
+                {
+                    name: 'MA10', type: 'line', data: ma10, xAxisIndex: 0, yAxisIndex: 0,
+                    smooth: true, showSymbol: false, lineStyle: { width: 1.5, color: maColors['MA10'] },
+                    itemStyle: { color: maColors['MA10'] },
+                },
+                {
+                    name: 'MA30', type: 'line', data: ma30, xAxisIndex: 0, yAxisIndex: 0,
+                    smooth: true, showSymbol: false, lineStyle: { width: 1.5, color: maColors['MA30'] },
+                    itemStyle: { color: maColors['MA30'] },
+                },
+                {
+                    name: 'MA60', type: 'line', data: ma60, xAxisIndex: 0, yAxisIndex: 0,
+                    smooth: true, showSymbol: false, lineStyle: { width: 1.5, color: maColors['MA60'] },
+                    itemStyle: { color: maColors['MA60'] },
+                },
+                {
+                    name: '买入',
+                    type: 'scatter',
+                    data: buyScatter,
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
+                    symbol: 'triangle',
+                    symbolSize: 14,
+                    itemStyle: { color: '#e74c3c' },
+                    z: 10,
+                },
+                {
+                    name: '卖出',
+                    type: 'scatter',
+                    data: sellScatter,
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
+                    symbol: 'pin',
+                    symbolSize: 14,
+                    itemStyle: { color: '#27ae60' },
+                    z: 10,
+                },
+                {
+                    name: '成交量',
+                    type: 'bar',
+                    data: volumes,
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
+                    itemStyle: { color: '#7f8fa6', opacity: 0.4 },
+                },
+            ],
+        };
+        chart.setOption(option);
+        window.addEventListener('resize', () => chart.resize());
+    }
+    </script>
+</body>
+</html>

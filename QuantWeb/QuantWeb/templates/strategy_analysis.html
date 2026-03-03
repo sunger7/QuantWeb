@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ strategy_name }} - 策略分析</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+        .navbar { background: #1a1a2e; color: #fff; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+        .navbar h1 { font-size: 1.4em; }
+        .navbar a { color: #aaa; text-decoration: none; margin-left: 24px; font-size: 0.95em; }
+        .navbar a:hover { color: #fff; }
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+
+        .filter-bar { background: #fff; border-radius: 10px; padding: 16px 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .filter-bar label { font-weight: 600; }
+        .filter-bar input[type="date"] { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+        .filter-bar button { background: #4361ee; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; }
+        .filter-bar button:hover { background: #3a56d4; }
+
+        /* 标签页 */
+        .tabs { display: flex; border-bottom: 2px solid #4361ee; margin-bottom: 0; }
+        .tab-btn { padding: 12px 24px; background: #e8ecf1; border: none; cursor: pointer; font-size: 0.95em; font-weight: 600; color: #555; border-radius: 8px 8px 0 0; margin-right: 4px; }
+        .tab-btn.active { background: #4361ee; color: #fff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card { background: #fff; border-radius: 0 0 12px 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 32px; }
+        .card .count { font-size: 0.9em; color: #888; margin-bottom: 12px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        thead th { background: #f8f9fa; padding: 10px 12px; text-align: left; font-size: 0.85em; color: #666; cursor: pointer; user-select: none; white-space: nowrap; }
+        thead th:hover { background: #e8ecf1; }
+        tbody td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-size: 0.9em; }
+        tbody tr { cursor: pointer; transition: background .15s; }
+        tbody tr:hover { background: #f5f7ff; }
+        .positive { color: #e74c3c; }
+        .negative { color: #27ae60; }
+        .fav-btn { padding: 3px 10px; font-size: 0.8em; border: 1px solid #4361ee; border-radius: 5px; background: #fff; color: #4361ee; cursor: pointer; white-space: nowrap; transition: all .2s; }
+        .fav-btn:hover { background: #4361ee; color: #fff; }
+        .fav-btn.active { background: #e74c3c; color: #fff; border-color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1><a href="{% url 'index' %}" style="color:#fff;text-decoration:none;">📈 量化交易系统</a></h1>
+        <div>
+            <a href="{% url 'index' %}">🏠 首页</a>
+            <a href="{% url 'watchlist' strategy_id %}" style="color:#ffd700;">⭐ 自选</a>
+            <a href="{% url 'stock_select' %}">📋 股票选择</a>
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <h2 style="margin-bottom:16px;">{{ strategy_name }} — 策略分析</h2>
+
+        <!-- 股票搜索 -->
+        <div style="margin-bottom:18px;display:flex;align-items:center;gap:10px;">
+            <input id="stock-search-input" type="text" placeholder="搜索股票代码或名称" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;width:220px;">
+            <button onclick="searchStock()" style="background:#4361ee;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;">搜索</button>
+            <span id="search-hint" style="margin-left:10px;display:none;"></span>
+        </div>
+
+        <!-- 日期筛选 -->
+        <form class="filter-bar" id="analysis-form" method="get" onsubmit="return startAnalysis(event, false)">
+            <label>起始日期</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+            <label>结束日期</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+            <button type="submit" id="btn-filter">筛选</button>
+            <button type="button" id="btn-force" style="background:#e74c3c;margin-left:auto;" onclick="startAnalysis(null, true)">🔄 强制重算</button>
+        </form>
+
+        <!-- 后台计算进度横幅 -->
+        <div id="task-banner" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 20px;margin-bottom:20px;font-size:0.95em;color:#856404;">
+            <span id="task-spinner" style="display:inline-block;margin-right:8px;">⏳</span>
+            <span id="task-message">后台计算中，请稍候…</span>
+        </div>
+
+        <!-- 板块标签页 -->
+        <div class="tabs">
+            {% for category, items in analysis_data.items %}
+            <button class="tab-btn{% if forloop.first %} active{% endif %}" onclick="switchTab('{{ forloop.counter0 }}', this)">
+                {{ category }}（{{ items|length }}）
+            </button>
+            {% endfor %}
+        </div>
+
+        {% for category, items in analysis_data.items %}
+        <div class="tab-content{% if forloop.first %} active{% endif %}" id="tab-{{ forloop.counter0 }}">
+            <div class="card">
+                <div class="count">共 {{ items|length }} 只股票</div>
+                <table id="table-{{ forloop.counter0 }}">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('table-{{ forloop.counter0 }}', 0)">代码</th>
+                            <th onclick="sortTable('table-{{ forloop.counter0 }}', 1)">名称</th>
+                            <th onclick="sortTable('table-{{ forloop.counter0 }}', 2)">起始价</th>
+                            <th onclick="sortTable('table-{{ forloop.counter0 }}', 3)">结束价</th>
+                            <th onclick="sortTable('table-{{ forloop.counter0 }}', 4)">总收益率(%)</th>
+                            <th style="cursor:default;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in items %}
+                        <tr>
+                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.code }}</td>
+                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.name }}</td>
+                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.start_price }}</td>
+                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.end_price }}</td>
+                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'" class="{% if row.total_return_pct >= 0 %}positive{% else %}negative{% endif %}">
+                                {{ row.total_return_pct }}%
+                            </td>
+                            <td>
+                                <button class="fav-btn{% if row.code in watchlist_codes %} active{% endif %}"
+                                        data-code="{{ row.code }}"
+                                        onclick="toggleFav(this, '{{ row.code }}')">
+                                    {% if row.code in watchlist_codes %}已自选{% else %}+ 自选{% endif %}
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" style="text-align:center;color:#999;padding:24px;">暂无数据</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+    /* ── 后台任务：筛选 / 强制重算 ── */
+    var _currentTaskId = null;
+    var _pollTimer = null;
+
+    function startAnalysis(event, forceRecalc) {
+        if (event) event.preventDefault();
+        if (forceRecalc && !confirm('确认要重新计算所有策略结果？这将覆盖所有旧文件，耗时较长。')) return false;
+        var form = document.getElementById('analysis-form');
+        var startDate = form.querySelector('[name=start_date]').value;
+        var endDate = form.querySelector('[name=end_date]').value;
+        var url = "{% url 'start_analysis_task' strategy_id %}?start_date=" + encodeURIComponent(startDate) + "&end_date=" + encodeURIComponent(endDate);
+        if (forceRecalc) url += "&force_recalc=1";
+
+        // 禁用按钮、显示横幅
+        document.getElementById('btn-filter').disabled = true;
+        document.getElementById('btn-force').disabled = true;
+        document.getElementById('btn-filter').style.opacity = '0.6';
+        document.getElementById('btn-force').style.opacity = '0.6';
+        var banner = document.getElementById('task-banner');
+        banner.style.display = 'block';
+        banner.style.background = '#fff3cd';
+        banner.style.borderColor = '#ffc107';
+        banner.style.color = '#856404';
+        document.getElementById('task-message').textContent = '后台计算中，请稍候…';
+
+        fetch(url).then(function(r){ return r.json(); }).then(function(data) {
+            if (data.task_id) {
+                _currentTaskId = data.task_id;
+                localStorage.setItem('analysis_task_{{ strategy_id }}', _currentTaskId);
+                pollTaskStatus();
+            }
+        }).catch(function(err) {
+            document.getElementById('task-message').textContent = '❌ 启动任务失败: ' + err;
+            banner.style.background = '#f8d7da';
+            banner.style.borderColor = '#f5c6cb';
+            banner.style.color = '#721c24';
+            _resetButtons();
+        });
+        return false;
+    }
+
+    function pollTaskStatus() {
+        if (!_currentTaskId) return;
+        _pollTimer = setInterval(function() {
+            fetch("{% url 'task_status' %}?task_id=" + _currentTaskId)
+            .then(function(r){ return r.json(); })
+            .then(function(data) {
+                if (data.status === 'done') {
+                    clearInterval(_pollTimer);
+                    localStorage.removeItem('analysis_task_{{ strategy_id }}');
+                    var banner = document.getElementById('task-banner');
+                    banner.style.background = '#d4edda';
+                    banner.style.borderColor = '#c3e6cb';
+                    banner.style.color = '#155724';
+                    document.getElementById('task-spinner').textContent = '✅';
+                    document.getElementById('task-message').textContent = '计算完成，正在刷新页面…';
+                    setTimeout(function(){ window.location.reload(); }, 800);
+                } else if (data.status === 'error') {
+                    clearInterval(_pollTimer);
+                    localStorage.removeItem('analysis_task_{{ strategy_id }}');
+                    var banner = document.getElementById('task-banner');
+                    banner.style.background = '#f8d7da';
+                    banner.style.borderColor = '#f5c6cb';
+                    banner.style.color = '#721c24';
+                    document.getElementById('task-spinner').textContent = '❌';
+                    document.getElementById('task-message').textContent = '计算出错: ' + (data.result || '未知错误');
+                    _resetButtons();
+                }
+                // running → keep polling
+            })
+            .catch(function() {});
+        }, 2000);  // 每 2 秒轮询
+    }
+
+    function _resetButtons() {
+        document.getElementById('btn-filter').disabled = false;
+        document.getElementById('btn-force').disabled = false;
+        document.getElementById('btn-filter').style.opacity = '1';
+        document.getElementById('btn-force').style.opacity = '1';
+    }
+
+    /* ── 页面加载时检查 localStorage 中是否有进行中的任务 ── */
+    (function() {
+        var savedTask = localStorage.getItem('analysis_task_{{ strategy_id }}');
+        if (savedTask) {
+            _currentTaskId = savedTask;
+            document.getElementById('task-banner').style.display = 'block';
+            document.getElementById('btn-filter').disabled = true;
+            document.getElementById('btn-force').disabled = true;
+            document.getElementById('btn-filter').style.opacity = '0.6';
+            document.getElementById('btn-force').style.opacity = '0.6';
+            // 先检查一次状态
+            fetch("{% url 'task_status' %}?task_id=" + _currentTaskId)
+            .then(function(r){ return r.json(); })
+            .then(function(data) {
+                if (data.status === 'done') {
+                    localStorage.removeItem('analysis_task_{{ strategy_id }}');
+                    var banner = document.getElementById('task-banner');
+                    banner.style.background = '#d4edda';
+                    banner.style.borderColor = '#c3e6cb';
+                    banner.style.color = '#155724';
+                    document.getElementById('task-spinner').textContent = '✅';
+                    document.getElementById('task-message').textContent = '后台计算已完成';
+                    _resetButtons();
+                    setTimeout(function(){ banner.style.display = 'none'; }, 3000);
+                } else if (data.status === 'running') {
+                    pollTaskStatus();
+                } else {
+                    // not_found or error — 清理
+                    localStorage.removeItem('analysis_task_{{ strategy_id }}');
+                    document.getElementById('task-banner').style.display = 'none';
+                    _resetButtons();
+                }
+            })
+            .catch(function() {
+                localStorage.removeItem('analysis_task_{{ strategy_id }}');
+                document.getElementById('task-banner').style.display = 'none';
+                _resetButtons();
+            });
+        }
+    })();
+
+    function searchStock() {
+        var input = document.getElementById('stock-search-input').value.trim().toLowerCase();
+        var hint = document.getElementById('search-hint');
+        hint.style.display = 'none';
+        var firstMatch = null;
+        var firstTabIdx = -1;
+        var matchCount = 0;
+        // 先清除所有高亮
+        document.querySelectorAll('.tab-content tbody tr').forEach(function(row) {
+            row.classList.remove('search-highlight');
+        });
+        if (!input) return;
+        // 遍历所有tab内容，高亮所有匹配行
+        document.querySelectorAll('.tab-content').forEach(function(tab, tabIdx) {
+            var rows = tab.querySelectorAll('tbody tr');
+            for (var i = 0; i < rows.length; i++) {
+                var code = (rows[i].cells[0]?.innerText || '').trim().toLowerCase();
+                var name = (rows[i].cells[1]?.innerText || '').trim().toLowerCase();
+                if (code.includes(input) || name.includes(input)) {
+                    rows[i].classList.add('search-highlight');
+                    matchCount++;
+                    if (!firstMatch) {
+                        firstMatch = rows[i];
+                        firstTabIdx = tabIdx;
+                    }
+                }
+            }
+        });
+        if (firstMatch) {
+            // 切换到第一个匹配所在的tab
+            switchTab(firstTabIdx, document.querySelectorAll('.tab-btn')[firstTabIdx]);
+            // 滚动到第一个匹配行
+            firstMatch.scrollIntoView({behavior:'smooth', block:'center'});
+            hint.style.display = 'inline';
+            hint.style.color = '#4361ee';
+            hint.textContent = '找到 ' + matchCount + ' 条匹配结果';
+        } else {
+            hint.style.display = 'inline';
+            hint.style.color = '#e74c3c';
+            hint.textContent = '未找到该股票';
+        }
+    }
+
+    // 回车触发搜索
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('stock-search-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') searchStock();
+        });
+    });
+
+    // 搜索高亮样式
+    var style = document.createElement('style');
+    style.innerHTML = '.search-highlight { background: #ffe066 !important; transition: background 0.5s; }';
+    document.head.appendChild(style);
+    function switchTab(idx, btn) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + idx).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    function sortTable(tableId, colIdx) {
+        const table = document.getElementById(tableId);
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const order = table.getAttribute('data-sort-order') === 'asc' ? 'desc' : 'asc';
+        table.setAttribute('data-sort-order', order);
+        rows.sort((a, b) => {
+            const av = a.cells[colIdx]?.innerText || '';
+            const bv = b.cells[colIdx]?.innerText || '';
+            const an = parseFloat(av.replace('%', ''));
+            const bn = parseFloat(bv.replace('%', ''));
+            if (!isNaN(an) && !isNaN(bn)) return order === 'asc' ? an - bn : bn - an;
+            return order === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        });
+        rows.forEach(r => tbody.appendChild(r));
+    }
+
+    function toggleFav(btn, code) {
+        var isActive = btn.classList.contains('active');
+        var action = isActive ? 'remove' : 'add';
+        fetch("{% url 'watchlist_api' %}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: action, code: code, strategy_id: '{{ strategy_id }}'})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.in_watchlist) {
+                btn.classList.add('active');
+                btn.textContent = '已自选';
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = '+ 自选';
+            }
+        });
+    }
+    </script>
+</body>
+</html>

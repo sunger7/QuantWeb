@@ -1,0 +1,47 @@
+# macOS
+.DS_Store
+
+# Python cache / build
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+akquant/
+akshare
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+
+# Generated reports
+report/
+dualma_report/
+rsi_report/
+threeDay_report/
+trade_info/
+
+# Generated market data (keep config json files under data/)
+data/上证日线/
+data/深证日线/
+data/基金_东方财富/
+data/daily_all/
+
+# Data download outputs
+data_download/上证日线/
+data_download/深证日线/

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⭐ 自选股 - {{ strategy_name }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+        .navbar { background: #1a1a2e; color: #fff; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+        .navbar h1 { font-size: 1.4em; }
+        .navbar a { color: #aaa; text-decoration: none; margin-left: 24px; font-size: 0.95em; }
+        .navbar a:hover { color: #fff; }
+        .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+
+        .card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .card .count { font-size: 0.9em; color: #888; margin-bottom: 12px; }
+        .empty-msg { text-align: center; color: #999; padding: 48px 0; font-size: 1.1em; }
+
+        table { width: 100%; border-collapse: collapse; }
+        thead th { background: #f8f9fa; padding: 10px 12px; text-align: left; font-size: 0.85em; color: #666; white-space: nowrap; }
+        tbody td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-size: 0.9em; }
+        tbody tr { cursor: pointer; transition: background .15s; }
+        tbody tr:hover { background: #f5f7ff; }
+        .positive { color: #e74c3c; }
+        .negative { color: #27ae60; }
+        .remove-btn { padding: 3px 10px; font-size: 0.8em; border: 1px solid #e74c3c; border-radius: 5px; background: #fff; color: #e74c3c; cursor: pointer; transition: all .2s; }
+        .remove-btn:hover { background: #e74c3c; color: #fff; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1><a href="{% url 'index' %}" style="color:#fff;text-decoration:none;">📈 量化交易系统</a></h1>
+        <div>
+            <a href="{% url 'index' %}">🏠 首页</a>
+            <a href="{% url 'strategy_analysis' strategy_id %}">📊 {{ strategy_name }}</a>
+            <a href="{% url 'stock_select' %}">📋 股票选择</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 style="margin-bottom:16px;">⭐ 自选股 — {{ strategy_name }}</h2>
+        <div class="card">
+            <div class="count">共 {{ items|length }} 只自选股</div>
+            {% if items %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>代码</th>
+                        <th>名称</th>
+                        <th>起始价</th>
+                        <th>结束价</th>
+                        <th>总收益率(%)</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in items %}
+                    <tr>
+                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.code }}</td>
+                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.name }}</td>
+                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.start_price }}</td>
+                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.end_price }}</td>
+                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'" class="{% if row.total_return_pct >= 0 %}positive{% else %}negative{% endif %}">
+                            {{ row.total_return_pct }}%
+                        </td>
+                        <td>
+                            <button class="remove-btn" onclick="removeFav(this, '{{ row.code }}')">移除</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-msg">暂无自选股，去策略分析页面添加吧 ✨</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+    function removeFav(btn, code) {
+        fetch("{% url 'watchlist_api' %}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'remove', code: code, strategy_id: '{{ strategy_id }}'})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.in_watchlist) {
+                var row = btn.closest('tr');
+                row.style.transition = 'opacity .3s';
+                row.style.opacity = '0';
+                setTimeout(() => row.remove(), 300);
+                // 更新计数
+                var countEl = document.querySelector('.count');
+                var remaining = document.querySelectorAll('tbody tr').length - 1;
+                countEl.textContent = '共 ' + remaining + ' 只自选股';
+                if (remaining <= 0) {
+                    document.querySelector('table').outerHTML = '<div class="empty-msg">暂无自选股，去策略分析页面添加吧 ✨</div>';
+                }
+            }
+        });
+    }
+    </script>
+</body>
+</html>

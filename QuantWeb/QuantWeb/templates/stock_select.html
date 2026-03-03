@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票选择 - 量化交易系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+        .navbar { background: #1a1a2e; color: #fff; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+        .navbar h1 { font-size: 1.4em; }
+        .navbar a { color: #aaa; text-decoration: none; margin-left: 24px; font-size: 0.95em; }
+        .navbar a:hover { color: #fff; }
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+
+        .search-bar { display: flex; gap: 12px; margin-bottom: 24px; align-items: center; flex-wrap: wrap; }
+        .search-bar input { flex: 1; min-width: 200px; padding: 10px 16px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95em; }
+        .search-bar select { padding: 10px 16px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95em; background: #fff; }
+
+        .tabs { display: flex; border-bottom: 2px solid #4361ee; margin-bottom: 0; }
+        .tab-btn { padding: 12px 24px; background: #e8ecf1; border: none; cursor: pointer; font-size: 0.95em; font-weight: 600; color: #555; border-radius: 8px 8px 0 0; margin-right: 4px; }
+        .tab-btn.active { background: #4361ee; color: #fff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card { background: #fff; border-radius: 0 0 12px 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 32px; }
+        .stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+        .stock-item { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1px solid #eee; border-radius: 8px; cursor: pointer; transition: all .15s; }
+        .stock-item:hover { background: #f0f4ff; border-color: #4361ee; }
+        .stock-item .code { font-weight: 600; font-size: 0.9em; color: #4361ee; }
+        .stock-item .name { font-size: 0.85em; color: #666; }
+        .count-badge { font-size: 0.85em; color: #888; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1><a href="{% url 'index' %}" style="color:#fff;text-decoration:none;">📈 量化交易系统</a></h1>
+        <div>
+            <a href="{% url 'index' %}">🏠 首页</a>
+            <a href="{% url 'settings' %}">⚙️ 设置</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 style="margin-bottom:16px;">股票选择</h2>
+
+        <!-- 搜索 + 策略选择 -->
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="输入代码或名称搜索…" oninput="filterStocks()">
+            <select id="strategy-select">
+                {% for s in strategies %}
+                <option value="{{ s.id }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- 板块标签页 -->
+        <div class="tabs">
+            {% for category, items in stocks.items %}
+            <button class="tab-btn{% if forloop.first %} active{% endif %}" onclick="switchTab('{{ forloop.counter0 }}', this)">
+                {{ category }}（{{ items|length }}）
+            </button>
+            {% endfor %}
+        </div>
+
+        {% for category, items in stocks.items %}
+        <div class="tab-content{% if forloop.first %} active{% endif %}" id="tab-{{ forloop.counter0 }}">
+            <div class="card">
+                <div class="count-badge">共 {{ items|length }} 只</div>
+                <div class="stock-grid" data-tab="{{ forloop.counter0 }}">
+                    {% for s in items %}
+                    <div class="stock-item" data-code="{{ s.code }}" data-name="{{ s.name }}" onclick="goDetail('{{ s.code }}')">
+                        <span class="code">{{ s.code }}</span>
+                        <span class="name">{{ s.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+    function switchTab(idx, btn) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + idx).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    function goDetail(code) {
+        const strategyId = document.getElementById('strategy-select').value;
+        window.location.href = '/strategy/' + strategyId + '/' + code + '/';
+    }
+
+    function filterStocks() {
+        const q = document.getElementById('search-input').value.toLowerCase();
+        document.querySelectorAll('.stock-item').forEach(el => {
+            const code = el.dataset.code.toLowerCase();
+            const name = (el.dataset.name || '').toLowerCase();
+            el.style.display = (code.includes(q) || name.includes(q)) ? '' : 'none';
+        });
+    }
+    </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设置 - 量化交易系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+        .navbar { background: #1a1a2e; color: #fff; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+        .navbar h1 { font-size: 1.4em; }
+        .navbar a { color: #aaa; text-decoration: none; margin-left: 24px; font-size: 0.95em; }
+        .navbar a:hover { color: #fff; }
+        .container { max-width: 800px; margin: 32px auto; padding: 0 16px; }
+        .card { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 24px; }
+        .card h2 { font-size: 1.2em; margin-bottom: 16px; color: #1a1a2e; border-bottom: 1px solid #eee; padding-bottom: 12px; }
+        label { font-weight: 600; display: block; margin-bottom: 6px; }
+        input[type="text"], select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95em; margin-bottom: 16px; }
+        button { background: #4361ee; color: #fff; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 0.95em; }
+        button:hover { background: #3a56d4; }
+        .messages { list-style: none; margin-bottom: 16px; }
+        .messages li { padding: 10px 16px; border-radius: 6px; margin-bottom: 8px; }
+        .messages .success { background: #d4edda; color: #155724; }
+        .messages .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1><a href="{% url 'index' %}" style="color:#fff;text-decoration:none;">📈 量化交易系统</a></h1>
+        <div>
+            <a href="{% url 'index' %}">🏠 首页</a>
+            <a href="{% url 'stock_select' %}">📋 股票选择</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% if messages %}
+        <ul class="messages">
+            {% for msg in messages %}
+            <li class="{{ msg.tags }}">{{ msg }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="card">
+            <h2>添加策略</h2>
+            <form method="post">
+                {% csrf_token %}
+                <label for="strategy_name">策略名称</label>
+                <input type="text" id="strategy_name" name="strategy_name" placeholder="输入新策略名称">
+                <button type="submit" name="action" value="add_strategy">添加策略</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>更新股票数据</h2>
+            <form method="post">
+                {% csrf_token %}
+                <label for="data_type">数据类型</label>
+                <select id="data_type" name="data_type">
+                    <option value="沪深A股">沪深A股</option>
+                    <option value="基金ETF">基金ETF</option>
+                </select>
+                <button type="submit" name="action" value="update_data">开始更新</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>性能设置</h2>
+            <form method="post">
+                {% csrf_token %}
+                <label for="max_workers">回测并发线程数</label>
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                    <input type="range" id="max_workers_range" min="1" max="64" value="{{ settings.max_workers }}" style="flex:1;" oninput="document.getElementById('max_workers').value=this.value;document.getElementById('mw_display').textContent=this.value">
+                    <span id="mw_display" style="font-size:1.2em;font-weight:700;min-width:36px;text-align:center;">{{ settings.max_workers }}</span>
+                </div>
+                <input type="number" id="max_workers" name="max_workers" min="1" max="64" value="{{ settings.max_workers }}" style="width:120px;margin-bottom:16px;" oninput="document.getElementById('max_workers_range').value=this.value;document.getElementById('mw_display').textContent=this.value">
+                <p style="font-size:0.82em;color:#888;margin-bottom:16px;">控制策略分析页回测时的并发线程数（1~64），值越大回测越快但占用更多CPU。默认为 8。</p>
+
+                <label for="commission">佣金率 (commission)</label>
+                <input type="number" id="commission" name="commission" min="0" max="0.01" step="0.00001" value="{{ settings.commission }}" style="width:120px;margin-bottom:16px;">
+                <p style="font-size:0.82em;color:#888;margin-bottom:8px;">每笔交易的佣金率，建议 0.00015~0.0003，A股券商常见为万分之1.5~3。</p>
+                <div style="color:#4361ee;font-size:1em;margin-bottom:16px;">当前佣金率：<b>{{ commission }}</b></div>
+                <button type="submit" name="action" value="save_settings">💾 保存设置</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

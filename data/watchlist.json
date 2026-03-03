@@ -1,0 +1,38 @@
+[
+  {
+    "code": "603533",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688498",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600938",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603227",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "159866",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "159501",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "513500",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688191",
+    "strategy_id": "RSI"
+  },
+  {
+    "code": "605289",
+    "strategy_id": "DualMA"
+  }
+]
