@@ -45,3 +45,8 @@ data/daily_all/
 # Data download outputs
 data_download/上证日线/
 data_download/深证日线/
+
+
+# files temporarily generated during development
+akQuant_test.py
+akquant_report.py
