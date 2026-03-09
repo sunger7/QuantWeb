@@ -35,6 +35,7 @@ dualma_report/
 rsi_report/
 threeDay_report/
 trade_info/
+vwap_report/
 
 # Generated market data (keep config json files under data/)
 data/上证日线/
