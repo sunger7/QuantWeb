@@ -1,0 +1,22 @@
+[
+  {
+    "id":"dd4586dd-bfad-4127-9b74-4e66befede64",
+    "symbol":"BENCHMARK",
+    "side":"buy",
+    "order_type":"market",
+    "quantity":2700.0,
+    "filled_quantity":2700.0,
+    "limit_price":null,
+    "stop_price":null,
+    "avg_price":354.94,
+    "commission":143.7507,
+    "status":"filled",
+    "time_in_force":"gtc",
+    "created_at":"2026-02-24T16:00:00.000Z",
+    "updated_at":"2026-02-25T16:00:00.000Z",
+    "tag":"",
+    "reject_reason":"",
+    "filled_value":958338.0,
+    "duration":"P1DT0H0M0S"
+  }
+]

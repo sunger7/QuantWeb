@@ -17,6 +17,7 @@ urlpatterns = [
     path('stocks/', views.stock_select, name='stock_select'),
     path('watchlist_api/', views.watchlist_api, name='watchlist_api'),
     path('update_single_stock/', views.update_single_stock, name='update_single_stock'),
+    path('update_watchlist_data/', views.update_watchlist_data, name='update_watchlist_data'),
     path('stop_update/', views.stop_update, name='stop_update'),
     path('watchlist/<str:strategy_id>/', views.watchlist_view, name='watchlist'),
 ]

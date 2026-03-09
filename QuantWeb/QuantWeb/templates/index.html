@@ -66,6 +66,10 @@
 
         /* 切换按钮 */
         .wl-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .wl-update-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 0.85em; background: #4361ee; color: #fff; border: none; border-radius: 6px; cursor: pointer; transition: background .2s; }
+        .wl-update-btn:hover { background: #3a56d4; }
+        .wl-update-btn:disabled { background: #8e9cc7; cursor: not-allowed; }
+        .wl-update-result { font-size: 0.82em; color: #666; }
         .view-toggle { display: inline-flex; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
         .view-toggle button { border: none; background: #fff; padding: 6px 14px; cursor: pointer; font-size: 0.85em; color: #555; transition: all .2s; }
         .view-toggle button.active { background: #4361ee; color: #fff; }
@@ -180,6 +184,8 @@
             <div class="wl-header">
                 <div class="section-title">⭐ 自选股票</div>
                 <div class="wl-toolbar">
+                    <button class="wl-update-btn" id="wl-update-btn" onclick="updateWatchlistData(this)">🔄 一键更新自选</button>
+                    <span id="wl-update-result" class="wl-update-result"></span>
                     <select class="sort-select" id="wl-sort" onchange="sortWatchlist()">
                         <option value="default">默认顺序</option>
                         <option value="ret-desc">收益率 ↓</option>
@@ -435,6 +441,36 @@
         }).finally(function() {
             btn.disabled = false;
             btn.textContent = '🔄 更新当日数据';
+        });
+    }
+
+    function updateWatchlistData(btn) {
+        if (btn.disabled) return;
+        var resultEl = document.getElementById('wl-update-result');
+        btn.disabled = true;
+        btn.textContent = '更新中...';
+        resultEl.style.color = '#666';
+        resultEl.textContent = '正在更新自选股...';
+
+        fetch("{% url 'update_watchlist_data' %}", {
+            method: 'POST'
+        }).then(function(response) {
+            return response.json();
+        }).then(function(data) {
+            if (data.status === 'ok') {
+                resultEl.style.color = '#155724';
+                resultEl.textContent = '✅ ' + (data.message || '更新完成');
+                location.reload();
+            } else {
+                resultEl.style.color = '#721c24';
+                resultEl.textContent = '❌ ' + (data.message || '更新失败');
+            }
+        }).catch(function(err) {
+            resultEl.style.color = '#721c24';
+            resultEl.textContent = '❌ 请求失败：' + err;
+        }).finally(function() {
+            btn.disabled = false;
+            btn.textContent = '🔄 一键更新自选';
         });
     }
     </script>

@@ -1,0 +1,23 @@
+[
+  {
+    "symbol":"BENCHMARK",
+    "entry_time":"2023-03-05T16:00:00.000Z",
+    "exit_time":"2023-03-14T16:00:00.000Z",
+    "entry_price":1.24,
+    "exit_price":1.22,
+    "quantity":799920.0,
+    "side":"Long",
+    "pnl":-15998.4,
+    "net_pnl":-16293.57048,
+    "return_pct":-1.6129032258,
+    "commission":295.17048,
+    "duration_bars":7,
+    "duration":"P9DT0H0M0S",
+    "mae":-3.2258064516,
+    "mfe":12.0967741935,
+    "entry_tag":"",
+    "exit_tag":"",
+    "entry_portfolio_value":1007850.4148800001,
+    "max_drawdown_pct":13.6690647482
+  }
+]

@@ -16,10 +16,10 @@ import os
 # }
 # session = requests.Session()
 # session.proxies.update(proxies)
-stock_sh_a_spot_em_df = ak.stock_sh_a_spot_em()
+# stock_sh_a_spot_em_df = ak.stock_sh_a_spot_em()
 # print(stock_sh_a_spot_em_df)
 # 保存至csv
-stock_sh_a_spot_em_df.to_csv('../data/stock_sh_a_spot_em.csv', index=False, encoding='utf-8-sig')
+# stock_sh_a_spot_em_df.to_csv('../data/stock_sh_a_spot_em.csv', index=False, encoding='utf-8-sig')
 # 读取stock_sh_a_spot_em.csv
 stock_sh_a_spot_em_df = pd.read_csv('../data/stock_sh_a_spot_em.csv', encoding='utf-8-sig')
 nonexistent_code_file = '../data/nonexistent_sh_codes.txt'
@@ -80,8 +80,8 @@ while(not is_complete):
                         continue
                     # 保存至csv
                     stock_zh_a_hist_df.to_csv(f'../data/上证日线/{code}.csv', index=False, encoding='utf-8-sig')
-                    time.sleep(random.uniform(1, 10))  # 添加延时，避免请求过快被封IP
-                    # print(f'{code} update 1')
+                    time.sleep(15)  # 添加延时，避免请求过快被封IP
+                    print(f'{code}  为空，已更新')
                     continue
                 last_date = df.iloc[-1]['日期']
                 # print(today, last_date)
@@ -92,8 +92,8 @@ while(not is_complete):
                     # 计算开始日期,开始日期为最后一行的日期加1天
                     # print(today,last_date)
                     start_date = pd.to_datetime(last_date) + pd.Timedelta(days=1)
-                    stock_zh_a_hist_df = ak.stock_zh_a_hist(symbol=str(code), period='daily', \
-                                                            start_date=start_date, end_date=today)
+                    print(f'{code} today:{today}, last_date:{last_date}')
+                    stock_zh_a_hist_df = ak.stock_zh_a_hist(symbol=str(code), period='daily', start_date=start_date, end_date=today)
                     # 将新数据追加到文件中
                     stock_zh_a_hist_df.to_csv(f'../data/上证日线/{code}.csv', mode='a', index=False, encoding='utf-8-sig', header=False)   
                     # print(f'{code} update 2') 
@@ -105,7 +105,8 @@ while(not is_complete):
                     # except IndexError:
                     #     today = last_date
                     #     continue
-                    time.sleep(random.uniform(1, 10))  # 添加延时，避免请求过快被封IP
+                    print(f'{code}  非最新，已更新')
+                    time.sleep(15)  # 添加延时，避免请求过快被封IP
                     
             else:
                 start_date = '20230101'
@@ -114,14 +115,15 @@ while(not is_complete):
                 if stock_zh_a_hist_df.empty or len(stock_zh_a_hist_df) == 0:
                     print(f'{code} 不存在，已跳过')
                     append_nonexistent_code(nonexistent_code_file, code, nonexistent_codes)
-                    time.sleep(random.uniform(1, 10))  # 添加延时，避免请求过快被封IP
+                    time.sleep(15)  # 添加延时，避免请求过快被封IP
                     continue
                 stock_zh_a_hist_df.to_csv(f'../data/上证日线/{code}.csv', index=False, encoding='utf-8-sig')
-                time.sleep(random.uniform(1, 10))  # 添加延时，避免请求过快被封IP
+                print(f'{code}  不存在，已更新')
+                time.sleep(15)  # 添加延时，避免请求过快被封IP
         except Exception as e:
             print(f'{code} 下载失败，已跳过:{e}')
             is_complete = False
-            time.sleep(random.uniform(1, 10))  # 添加延时，避免请求过快被封IP
+            time.sleep(15)  # 添加延时，避免请求过快被封IP
             continue
 
 

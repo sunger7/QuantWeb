@@ -121,7 +121,7 @@ while(not is_complete):
                     time.sleep(random.uniform(20, 20))  # 添加延时，避免请求过快被封IP
                     continue
                 stock_zh_a_hist_df.to_csv(f'../data/深证日线/{code}.csv', index=False, encoding='utf-8-sig')
-                time.sleep(5)  # 添加延时，避免请求过快被封IP
+                time.sleep(15)  # 添加延时，避免请求过快被封IP
                 
                 print(f'{code} 不存在，已更新')
                 pass

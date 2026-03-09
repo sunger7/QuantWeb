@@ -1,3 +1,4 @@
+{% load humanize %}
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -23,7 +24,27 @@
         .tab-panel { display: none; background: #fff; border-radius: 0 0 12px 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 32px; }
         .tab-panel.active { display: block; }
 
-        #kline-chart { width: 100%; height: 600px; }
+        .kline-layout { display: flex; gap: 16px; align-items: stretch; }
+        .kline-main { flex: 1; min-width: 0; }
+        #kline-chart { width: 100%; height: 700px; }
+        .chip-panel { width: 290px; background: #f8f9fa; border: 1px solid #e8ebf2; border-radius: 10px; padding: 12px; overflow: auto; }
+        .chip-panel h4 { font-size: 0.95em; margin-bottom: 10px; color: #2f3a56; }
+        .chip-meta { font-size: 0.8em; color: #666; line-height: 1.6; margin-bottom: 8px; }
+        .chip-bars { margin-top: 8px; }
+        .chip-row { margin-bottom: 8px; }
+        .chip-label { display: flex; justify-content: space-between; font-size: 0.74em; color: #555; margin-bottom: 3px; }
+        .chip-track { height: 7px; border-radius: 4px; background: #e6eaf2; overflow: hidden; }
+        .chip-fill { height: 100%; background: linear-gradient(90deg, #6c7ee1, #8e44ad); }
+        .chip-hist-wrap { margin-top: 12px; border-top: 1px dashed #d9deea; padding-top: 10px; }
+        .chip-hist-title { font-size: 0.76em; color: #666; margin-bottom: 8px; }
+        .chip-hist { height: 90px; display: flex; align-items: flex-end; gap: 3px; }
+        .chip-hist-bar { flex: 1; min-width: 0; background: linear-gradient(180deg, #8aa2ff, #5f74d9); border-radius: 3px 3px 0 0; }
+        .chip-hist-range { font-size: 0.72em; color: #777; margin-top: 6px; display: flex; justify-content: space-between; }
+        .chip-tip { position: fixed; z-index: 9999; pointer-events: none; background: rgba(26,26,46,0.92); color: #fff; font-size: 0.72em; padding: 5px 8px; border-radius: 6px; line-height: 1.45; display: none; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+        @media (max-width: 1200px) {
+            .kline-layout { flex-direction: column; }
+            .chip-panel { width: 100%; }
+        }
         .report-frame { width: 100%; min-height: 800px; border: none; border-radius: 8px; }
         .no-data { text-align: center; padding: 60px; color: #999; font-size: 1.1em; }
 
@@ -85,7 +106,22 @@
 
         <!-- K线图 -->
         <div class="tab-panel active" id="panel-kline">
-            <div id="kline-chart"></div>
+            <div class="kline-layout">
+                <div class="kline-main">
+                    <div id="kline-chart"></div>
+                </div>
+                <div class="chip-panel" id="chip-panel">
+                    <h4>筹码分布（当前时段）</h4>
+                    <div class="chip-meta" id="chip-meta">加载中...</div>
+                    <div class="chip-bars" id="chip-bars"></div>
+                    <div class="chip-hist-wrap">
+                        <div class="chip-hist-title">12档直方图（按该计算日前历史区间）</div>
+                        <div class="chip-hist" id="chip-hist"></div>
+                        <div class="chip-hist-range" id="chip-hist-range"></div>
+                    </div>
+                </div>
+                <div class="chip-tip" id="chip-tip"></div>
+            </div>
         </div>
 
         <!-- 策略对比 -->
@@ -101,6 +137,8 @@
                         <th>亏损次数</th>
                         <th>胜率(%)</th>
                         <th>总盈亏</th>
+                        <th>交易成本</th>
+                        <th>成本率(%)</th>
                         <th>默认策略</th>
                     </tr>
                 </thead>
@@ -118,6 +156,8 @@
                         <td class="{% if comp.total_pnl != None %}{% if comp.total_pnl >= 0 %}positive{% else %}negative{% endif %}{% endif %}">
                             {% if comp.total_pnl != None %}{{ comp.total_pnl }}{% else %}—{% endif %}
                         </td>
+                        <td>{% if comp.trade_cost != None %}{{ comp.trade_cost|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+                        <td>{% if comp.trade_cost_pct != None %}{{ comp.trade_cost_pct|floatformat:4 }}%{% else %}—{% endif %}</td>
                         <td>
                             <button class="set-default-btn{% if comp.id == stock_default_strategy %} active{% endif %}"
                                     id="default-btn-{{ comp.id }}"
@@ -127,10 +167,11 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="8" style="text-align:center;color:#999;padding:24px;">暂无对比数据，请先运行策略回测。</td></tr>
+                    <tr><td colspan="10" style="text-align:center;color:#999;padding:24px;">暂无对比数据，请先运行策略回测。</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
+            <div style="font-size:0.82em;color:#888;margin-top:8px;">成本率按初始资金 {{ initial_cash|floatformat:0 }} 计算。</div>
             <div id="comp-chart"></div>
         </div>
 
@@ -321,6 +362,7 @@
         const dates = rawKline.map(r => r.date);
         const ohlc = rawKline.map(r => [r.open, r.close, r.low, r.high]);
         const volumes = rawKline.map(r => r.volume);
+        const turnovers = rawKline.map(r => r.turnover);
 
         // 买卖点标记（orders JSON 格式：side, created_at, avg_price）
         const buyPoints = [];
@@ -385,11 +427,221 @@
             }
             return result;
         }
+        function calcRollingVWAP(prices, vols, period) {
+            const result = [];
+            for (let i = 0; i < prices.length; i++) {
+                if (i < period - 1) { result.push(null); continue; }
+                let pvSum = 0;
+                let volSum = 0;
+                for (let j = i - period + 1; j <= i; j++) {
+                    const p = Number(prices[j]);
+                    const v = Number(vols[j]);
+                    if (!Number.isFinite(p) || !Number.isFinite(v) || v <= 0) continue;
+                    pvSum += p * v;
+                    volSum += v;
+                }
+                result.push(volSum > 0 ? +(pvSum / volSum).toFixed(2) : null);
+            }
+            return result;
+        }
+        function calcChipMetrics(prices, vols, lows, highs, period) {
+            const profiles = [];
+            for (let i = 0; i < prices.length; i++) {
+                if (i < period - 1) {
+                    profiles.push(null);
+                    continue;
+                }
+                const windowPrices = [];
+                const windowVols = [];
+                let volSum = 0;
+                for (let j = i - period + 1; j <= i; j++) {
+                    const p = Number(prices[j]);
+                    const v = Number(vols[j]);
+                    if (!Number.isFinite(p) || !Number.isFinite(v) || v <= 0) continue;
+                    windowPrices.push(p);
+                    windowVols.push(v);
+                    volSum += v;
+                }
+                if (windowPrices.length < 3 || volSum <= 0) {
+                    profiles.push(null);
+                    continue;
+                }
+
+                const histLowArr = lows.slice(0, i).filter(v => Number.isFinite(v));
+                const histHighArr = highs.slice(0, i).filter(v => Number.isFinite(v));
+                const minP = histLowArr.length ? Math.min.apply(null, histLowArr) : Math.min.apply(null, windowPrices);
+                const maxP = histHighArr.length ? Math.max.apply(null, histHighArr) : Math.max.apply(null, windowPrices);
+                const range = maxP - minP;
+                if (!Number.isFinite(range) || range <= 0) {
+                    profiles.push({
+                        score: 100,
+                        peakPrice: +minP.toFixed(2),
+                        low70: +minP.toFixed(2),
+                        high70: +minP.toFixed(2),
+                    });
+                    continue;
+                }
+
+                const binCount = 12;
+                const binWidth = range / binCount;
+                if (binWidth <= 0) {
+                    profiles.push({
+                        score: 100,
+                        peakPrice: +minP.toFixed(2),
+                        low70: +minP.toFixed(2),
+                        high70: +minP.toFixed(2),
+                    });
+                    continue;
+                }
+
+                const bins = new Array(binCount).fill(0);
+                for (let k = 0; k < windowPrices.length; k++) {
+                    const p = windowPrices[k];
+                    const v = windowVols[k];
+                    let idx = Math.floor((p - minP) / binWidth);
+                    if (idx >= binCount) idx = binCount - 1;
+                    if (idx < 0) idx = 0;
+                    bins[idx] += v;
+                }
+
+                const peakVol = Math.max.apply(null, bins);
+                const peakIdx = bins.indexOf(peakVol);
+                const score = peakVol / volSum * 100;
+
+                const target = volSum * 0.7;
+                let total70 = bins[peakIdx] || 0;
+                let left = peakIdx;
+                let right = peakIdx;
+                while (total70 < target && (left > 0 || right < binCount - 1)) {
+                    const leftCandidate = left > 0 ? bins[left - 1] : -1;
+                    const rightCandidate = right < binCount - 1 ? bins[right + 1] : -1;
+                    if (rightCandidate >= leftCandidate) {
+                        if (right < binCount - 1) {
+                            right += 1;
+                            total70 += bins[right];
+                        } else if (left > 0) {
+                            left -= 1;
+                            total70 += bins[left];
+                        }
+                    } else {
+                        if (left > 0) {
+                            left -= 1;
+                            total70 += bins[left];
+                        } else if (right < binCount - 1) {
+                            right += 1;
+                            total70 += bins[right];
+                        }
+                    }
+                }
+
+                const peakPrice = minP + (peakIdx + 0.5) * binWidth;
+                const low70 = minP + left * binWidth;
+                const high70 = minP + (right + 1) * binWidth;
+
+                const dist = [];
+                for (let b = 0; b < binCount; b++) {
+                    const ratio = volSum > 0 ? (bins[b] / volSum * 100) : 0;
+                    const low = minP + b * binWidth;
+                    const high = minP + (b + 1) * binWidth;
+                    dist.push({
+                        idx: b,
+                        low: +low.toFixed(2),
+                        high: +high.toFixed(2),
+                        ratio: +ratio.toFixed(2),
+                    });
+                }
+                profiles.push({
+                    score: +score.toFixed(2),
+                    peakPrice: +peakPrice.toFixed(2),
+                    low70: +low70.toFixed(2),
+                    high70: +high70.toFixed(2),
+                    minP: +minP.toFixed(2),
+                    maxP: +maxP.toFixed(2),
+                    dist: dist,
+                });
+            }
+            return { profiles };
+        }
         const ma5  = calcMA(closePrices, 5);
         const ma10 = calcMA(closePrices, 10);
         const ma30 = calcMA(closePrices, 30);
         const ma60 = calcMA(closePrices, 60);
+        const vwap = calcRollingVWAP(closePrices, volumes, 20);
+        const lowPrices = rawKline.map(r => Number(r.low));
+        const highPrices = rawKline.map(r => Number(r.high));
+        const chipMetrics = calcChipMetrics(closePrices, volumes, lowPrices, highPrices, 20);
+        const chipProfiles = chipMetrics.profiles;
+        const chipMetaEl = document.getElementById('chip-meta');
+        const chipBarsEl = document.getElementById('chip-bars');
+        const chipHistEl = document.getElementById('chip-hist');
+        const chipHistRangeEl = document.getElementById('chip-hist-range');
+        const chipTipEl = document.getElementById('chip-tip');
         const maColors = { 'MA5': '#f39c12', 'MA10': '#e74c8b', 'MA30': '#3498db', 'MA60': '#9b59b6' };
+
+        function bindChipHistHover() {
+            if (!chipHistEl || !chipTipEl) return;
+            chipHistEl.querySelectorAll('.chip-hist-bar').forEach(function(bar) {
+                bar.addEventListener('mousemove', function(e) {
+                    const low = bar.getAttribute('data-low') || '-';
+                    const high = bar.getAttribute('data-high') || '-';
+                    const ratio = bar.getAttribute('data-ratio') || '0';
+                    chipTipEl.innerHTML = '价格区间：' + low + ' - ' + high + '<br/>占比：' + ratio + '%';
+                    chipTipEl.style.display = 'block';
+                    chipTipEl.style.left = (e.clientX + 12) + 'px';
+                    chipTipEl.style.top = (e.clientY + 12) + 'px';
+                });
+                bar.addEventListener('mouseleave', function() {
+                    chipTipEl.style.display = 'none';
+                });
+            });
+        }
+
+        function updateChipPanelByIndex(idx) {
+            if (!chipMetaEl || !chipBarsEl) return;
+            const cp = chipProfiles[idx];
+            const dateText = dates[idx] || '—';
+            if (!cp) {
+                chipMetaEl.innerHTML = '日期：' + dateText + '<br/>筹码数据不足';
+                chipBarsEl.innerHTML = '';
+                if (chipHistEl) chipHistEl.innerHTML = '';
+                if (chipHistRangeEl) chipHistRangeEl.innerHTML = '';
+                return;
+            }
+            chipMetaEl.innerHTML =
+                '日期：' + dateText +
+                '<br/>集中度：' + cp.score + '%' +
+                '<br/>主峰价：' + cp.peakPrice +
+                '<br/>70%区间：[' + cp.low70 + ', ' + cp.high70 + ']' +
+                '<br/>历史区间：[' + cp.minP + ', ' + cp.maxP + ']';
+
+            const topBins = (cp.dist || []).slice().sort(function(a, b) { return b.ratio - a.ratio; }).slice(0, 8);
+            if (!topBins.length) {
+                chipBarsEl.innerHTML = '<div style="font-size:0.78em;color:#999;">无有效筹码分布</div>';
+                return;
+            }
+
+            chipBarsEl.innerHTML = topBins.map(function(bin) {
+                return '<div class="chip-row">'
+                    + '<div class="chip-label"><span>' + bin.low + ' - ' + bin.high + '</span><span>' + bin.ratio + '%</span></div>'
+                    + '<div class="chip-track"><div class="chip-fill" style="width:' + Math.max(0, Math.min(100, bin.ratio * 3)) + '%"></div></div>'
+                    + '</div>';
+            }).join('');
+
+            if (chipHistEl) {
+                const fullBins = cp.dist || [];
+                const maxRatio = fullBins.reduce(function(maxVal, b) {
+                    return Math.max(maxVal, b.ratio || 0);
+                }, 0);
+                chipHistEl.innerHTML = fullBins.map(function(bin) {
+                    const h = maxRatio > 0 ? Math.max(3, Math.round(bin.ratio / maxRatio * 88)) : 3;
+                    return '<div class="chip-hist-bar" data-low="' + bin.low + '" data-high="' + bin.high + '" data-ratio="' + bin.ratio + '" style="height:' + h + 'px"></div>';
+                }).join('');
+                bindChipHistHover();
+            }
+            if (chipHistRangeEl) {
+                chipHistRangeEl.innerHTML = '<span>' + cp.minP + '</span><span>' + cp.maxP + '</span>';
+            }
+        }
 
         // 构建买卖点 scatter 数据（与 dates 等长的数组，无数据处填 null）
         const buyScatter = new Array(dates.length).fill(null);
@@ -412,24 +664,27 @@
                 axisPointer: { type: 'cross' },
             },
             legend: {
-                data: ['K线', 'MA5', 'MA10', 'MA30', 'MA60', '买入', '卖出', '成交量'],
-                selected: { 'MA5': true, 'MA10': true, 'MA30': true, 'MA60': false },
+                data: ['K线', 'MA5', 'MA10', 'MA30', 'MA60', 'VWAP', '买入', '卖出', '成交量', '换手率'],
+                selected: { 'MA5': true, 'MA10': true, 'MA30': true, 'MA60': false, 'VWAP': true, '换手率': true },
             },
             grid: [
-                { left: 60, right: 40, top: 60, height: '55%' },
-                { left: 60, right: 40, top: '75%', height: '15%' },
+                { left: 60, right: 40, top: 60, height: '50%' },
+                { left: 60, right: 40, top: '66%', height: '11%' },
+                { left: 60, right: 40, top: '81%', height: '11%' },
             ],
             xAxis: [
                 { type: 'category', data: dates, gridIndex: 0, boundaryGap: true, axisLine: { lineStyle: { color: '#ccc' } }, axisLabel: { fontSize: 11 } },
                 { type: 'category', data: dates, gridIndex: 1, boundaryGap: true, axisLabel: { show: false } },
+                { type: 'category', data: dates, gridIndex: 2, boundaryGap: true, axisLabel: { show: false } },
             ],
             yAxis: [
                 { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: '#eee' } } },
                 { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { show: false } },
+                { scale: true, gridIndex: 2, splitLine: { show: false }, axisLabel: { formatter: '{value}%' } },
             ],
             dataZoom: [
-                { type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 },
-                { type: 'slider', xAxisIndex: [0, 1], start: 0, end: 100, top: '93%' },
+                { type: 'inside', xAxisIndex: [0, 1, 2], start: 0, end: 100 },
+                { type: 'slider', xAxisIndex: [0, 1, 2], start: 0, end: 100, top: '94%' },
             ],
             series: [
                 {
@@ -466,6 +721,11 @@
                     itemStyle: { color: maColors['MA60'] },
                 },
                 {
+                    name: 'VWAP', type: 'line', data: vwap, xAxisIndex: 0, yAxisIndex: 0,
+                    smooth: true, showSymbol: false, lineStyle: { width: 1.8, color: '#16a085' },
+                    itemStyle: { color: '#16a085' },
+                },
+                {
                     name: '买入',
                     type: 'scatter',
                     data: buyScatter,
@@ -493,11 +753,51 @@
                     data: volumes,
                     xAxisIndex: 1,
                     yAxisIndex: 1,
-                    itemStyle: { color: '#7f8fa6', opacity: 0.4 },
+                    itemStyle: {
+                        opacity: 0.4,
+                        color: function(params) {
+                            const idx = params.dataIndex;
+                            const k = ohlc[idx] || [];
+                            const open = k[0];
+                            const close = k[1];
+                            return close >= open ? '#e74c3c' : '#27ae60';
+                        }
+                    },
+                },
+                {
+                    name: '换手率',
+                    type: 'bar',
+                    data: turnovers,
+                    xAxisIndex: 2,
+                    yAxisIndex: 2,
+                    itemStyle: {
+                        opacity: 0.55,
+                        color: function(params) {
+                            const idx = params.dataIndex;
+                            const k = ohlc[idx] || [];
+                            const open = k[0];
+                            const close = k[1];
+                            return close >= open ? '#e74c3c' : '#27ae60';
+                        }
+                    },
                 },
             ],
         };
         chart.setOption(option);
+        updateChipPanelByIndex(dates.length - 1);
+        chart.on('updateAxisPointer', function(evt) {
+            const axesInfo = evt.axesInfo || [];
+            if (!axesInfo.length) return;
+            const idx = axesInfo[0].value;
+            if (typeof idx === 'number' && idx >= 0 && idx < dates.length) {
+                updateChipPanelByIndex(idx);
+            }
+        });
+        chart.on('click', function(params) {
+            if (typeof params.dataIndex === 'number') {
+                updateChipPanelByIndex(params.dataIndex);
+            }
+        });
         window.addEventListener('resize', () => chart.resize());
     }
     </script>

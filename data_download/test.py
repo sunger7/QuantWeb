@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 # 上证日线数据目录
-data_dir = '/Users/winssion/Desktop/akshare_proj/data/深证日线'
+data_dir = '/Users/winssion/Desktop/akshare_proj/data/上证日线'
 
 # 遍历目录中的所有CSV文件
 csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]

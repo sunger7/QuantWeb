@@ -1,0 +1,23 @@
+[
+  {
+    "symbol":"BENCHMARK",
+    "entry_time":"2026-01-22T16:00:00.000Z",
+    "exit_time":"2026-03-04T16:00:00.000Z",
+    "entry_price":0.928,
+    "exit_price":0.975,
+    "quantity":1077477.0,
+    "side":"Long",
+    "pnl":50641.419,
+    "net_pnl":50333.85319035,
+    "return_pct":5.0646551724,
+    "commission":307.56580965,
+    "duration_bars":23,
+    "duration":"P41DT0H0M0S",
+    "mae":-1.0775862069,
+    "mfe":7.650862069,
+    "entry_tag":"",
+    "exit_tag":"",
+    "entry_portfolio_value":996617.5842016001,
+    "max_drawdown_pct":4.0041067762
+  }
+]

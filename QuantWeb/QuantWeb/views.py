@@ -13,7 +13,7 @@ import threading
 import uuid
 import time as _time
 from akquant import Strategy, run_backtest
-from .myStrategy import DualMAStrategy, ThreeDayReverseStrategy, RSIStrategy
+from .myStrategy import DualMAStrategy, ThreeDayReverseStrategy, RSIStrategy, VWAPStrategy
 # ── 常量 ─────────────────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(__file__), '../../data')
 TRADE_INFO_DIR = os.path.join(os.path.dirname(__file__), '../../trade_info')
@@ -21,6 +21,7 @@ REPORT_DIRS = {
     'DualMA': os.path.join(os.path.dirname(__file__), '../../dualma_report'),
     'ThreeDayReverse': os.path.join(os.path.dirname(__file__), '../../threeDay_report'),
     'RSI': os.path.join(os.path.dirname(__file__), '../../rsi_report'),
+    'VWAP': os.path.join(os.path.dirname(__file__), '../../vwap_report'),
 }
 DATA_DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), '../../data_download')
 WATCHLIST_FILE = os.path.join(os.path.dirname(__file__), '../../data/watchlist.json')
@@ -31,6 +32,7 @@ STRATEGIES = [
     {'id': 'DualMA', 'name': '双均线策略', 'description': '使用快线和慢线金叉/死叉进行交易'},
     {'id': 'ThreeDayReverse', 'name': '三日反转策略', 'description': '连续跌三天买入，涨三天卖出'},
     {'id': 'RSI', 'name': 'RSI策略', 'description': 'RSI超卖买入(30以下)，超买卖出(70以上)'},
+    {'id': 'VWAP', 'name': 'VWAP策略', 'description': '收盘价上穿VWAP买入，下穿VWAP卖出'},
 ]
 
 # ── 后台任务管理 ─────────────────────────────────────
@@ -653,6 +655,7 @@ def _update_single_stock_data(stock_code):
         if adjust:
             kwargs['adjust'] = adjust
         new_df = ak.stock_zh_a_hist(**kwargs)
+        _time.sleep(5)  # 避免请求过快被封禁
 
         if new_df is None or new_df.empty:
             return {'status': 'ok', 'message': f'{stock_code} 无新数据可更新'}
@@ -667,6 +670,48 @@ def _update_single_stock_data(stock_code):
         return {'status': 'ok', 'message': f'{stock_code} 更新成功，新增 {new_count} 条数据'}
     except Exception as e:
         return {'status': 'error', 'message': f'{stock_code} 更新失败：{e}'}
+
+
+@csrf_exempt
+def update_watchlist_data(request):
+    """仅更新自选股数据 API (AJAX POST)"""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
+
+    wl = _load_watchlist()
+    wl_codes = list(dict.fromkeys(w.get('code', '') for w in wl if w.get('code')))
+    if not wl_codes:
+        return JsonResponse({'status': 'ok', 'message': '暂无自选股票可更新', 'total': 0, 'updated': 0, 'skipped': 0, 'errors': 0})
+
+    total = len(wl_codes)
+    updated = 0
+    skipped = 0
+    errors = 0
+    details = []
+
+    for code in wl_codes:
+        result = _update_single_stock_data(code)
+        status = result.get('status')
+        msg = result.get('message', '')
+        details.append({'code': code, 'status': status, 'message': msg})
+
+        if status == 'ok':
+            if '更新成功' in msg:
+                updated += 1
+            else:
+                skipped += 1
+        else:
+            errors += 1
+
+    return JsonResponse({
+        'status': 'ok',
+        'message': f'自选股更新完成：共 {total} 只，更新 {updated} 只，跳过 {skipped} 只，失败 {errors} 只',
+        'total': total,
+        'updated': updated,
+        'skipped': skipped,
+        'errors': errors,
+        'details': details,
+    })
 
 
 @csrf_exempt
@@ -838,6 +883,7 @@ def start_recalc_task(request, strategy_id, stock_code):
 
 def strategy_detail(request, strategy_id, stock_code):
     """股票详情页：K线图 + 买卖点 + 回测报告"""
+    initial_cash = 100_000.0
     kline_directories = [
         os.path.join(DATA_DIR, '基金_东方财富'),
         os.path.join(DATA_DIR, '上证日线'),
@@ -917,6 +963,8 @@ def strategy_detail(request, strategy_id, stock_code):
             'loss_count': 0,
             'win_rate': None,
             'total_pnl': None,
+            'trade_cost': None,
+            'trade_cost_pct': None,
         }
         # 读取收益率
         if os.path.exists(backtest_path):
@@ -946,6 +994,26 @@ def strategy_detail(request, strategy_id, stock_code):
                 total_rounds = len(trades_list)
                 comp['win_rate'] = round(len(wins) / total_rounds * 100, 1) if total_rounds else None
                 comp['total_pnl'] = round(sum(t.get('pnl', 0) for t in trades_list), 2)
+
+                total_cost = 0.0
+                for t in trades_list:
+                    commission_val = t.get('commission', None)
+                    if commission_val is not None:
+                        try:
+                            total_cost += float(commission_val)
+                            continue
+                        except (TypeError, ValueError):
+                            pass
+                    try:
+                        pnl_val = float(t.get('pnl', 0) or 0)
+                        net_pnl_val = float(t.get('net_pnl', pnl_val) or pnl_val)
+                        fee_guess = pnl_val - net_pnl_val
+                        if fee_guess > 0:
+                            total_cost += fee_guess
+                    except (TypeError, ValueError):
+                        pass
+                comp['trade_cost'] = round(total_cost, 2)
+                comp['trade_cost_pct'] = round(total_cost / initial_cash * 100, 4) if initial_cash > 0 else None
             except Exception:
                 pass
         strategy_comparison.append(comp)
@@ -997,6 +1065,7 @@ def strategy_detail(request, strategy_id, stock_code):
         'strategies': STRATEGIES,
         'strategies_json': json.dumps([{'id': s['id'], 'name': s['name']} for s in STRATEGIES], ensure_ascii=False),
         'stock_default_strategy': stock_default_strategy,
+        'initial_cash': initial_cash,
         'today': _date.today().strftime('%Y-%m-%d'),
     })
 
@@ -1178,7 +1247,7 @@ def _update_stock_data_stream(data_type, today_str=None):
             if adjust:
                 kwargs['adjust'] = adjust
             new_df = ak.stock_zh_a_hist(**kwargs)
-
+            _time.sleep(10)  # 避免请求过快被封禁
             if new_df is None or new_df.empty:
                 skipped += 1
                 if not append:
