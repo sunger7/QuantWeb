@@ -1,90 +1,6 @@
 [
   {
     "symbol":"BENCHMARK",
-    "entry_time":"2025-06-24T16:00:00.000Z",
-    "exit_time":"2025-07-15T16:00:00.000Z",
-    "entry_price":54.3,
-    "exit_price":56.95,
-    "quantity":18300.0,
-    "side":"Long",
-    "pnl":48495.0,
-    "net_pnl":48189.61875,
-    "return_pct":4.8802946593,
-    "commission":305.38125,
-    "duration_bars":15,
-    "duration":"P21DT0H0M0S",
-    "mae":-1.270718232,
-    "mfe":14.0883977901,
-    "entry_tag":"",
-    "exit_tag":"",
-    "entry_portfolio_value":1005523.9465,
-    "max_drawdown_pct":10.2459016393
-  },
-  {
-    "symbol":"BENCHMARK",
-    "entry_time":"2025-07-17T16:00:00.000Z",
-    "exit_time":"2025-07-20T16:00:00.000Z",
-    "entry_price":56.85,
-    "exit_price":56.66,
-    "quantity":18300.0,
-    "side":"Long",
-    "pnl":-3477.0,
-    "net_pnl":-3788.58495,
-    "return_pct":-0.3342128408,
-    "commission":311.58495,
-    "duration_bars":1,
-    "duration":"P3DT0H0M0S",
-    "mae":-0.3342128408,
-    "mfe":1.0729991205,
-    "entry_tag":"",
-    "exit_tag":"",
-    "entry_portfolio_value":1055353.5655,
-    "max_drawdown_pct":1.3922728855
-  },
-  {
-    "symbol":"BENCHMARK",
-    "entry_time":"2025-08-11T16:00:00.000Z",
-    "exit_time":"2025-08-14T16:00:00.000Z",
-    "entry_price":56.39,
-    "exit_price":55.65,
-    "quantity":18400.0,
-    "side":"Long",
-    "pnl":-13616.0,
-    "net_pnl":-13925.2304,
-    "return_pct":-1.312289413,
-    "commission":309.2304,
-    "duration_bars":3,
-    "duration":"P3DT0H0M0S",
-    "mae":-1.5428267423,
-    "mfe":1.6846958681,
-    "entry_tag":"",
-    "exit_tag":"",
-    "entry_portfolio_value":1047005.3974,
-    "max_drawdown_pct":3.1740495291
-  },
-  {
-    "symbol":"BENCHMARK",
-    "entry_time":"2025-08-17T16:00:00.000Z",
-    "exit_time":"2025-08-27T16:00:00.000Z",
-    "entry_price":57.87,
-    "exit_price":56.25,
-    "quantity":17804.0,
-    "side":"Long",
-    "pnl":-28842.48,
-    "net_pnl":-29147.248872,
-    "return_pct":-2.799377916,
-    "commission":304.768872,
-    "duration_bars":8,
-    "duration":"P10DT0H0M0S",
-    "mae":-5.3568342837,
-    "mfe":3.6288232245,
-    "entry_tag":"",
-    "exit_tag":"",
-    "entry_portfolio_value":1018036.495778,
-    "max_drawdown_pct":8.6710021678
-  },
-  {
-    "symbol":"BENCHMARK",
     "entry_time":"2025-09-07T16:00:00.000Z",
     "exit_time":"2025-09-09T16:00:00.000Z",
     "entry_price":58.01,
@@ -101,7 +17,7 @@
     "mfe":0.0861920359,
     "entry_tag":"",
     "exit_tag":"",
-    "entry_portfolio_value":1002726.888728,
+    "entry_portfolio_value":1001398.3342,
     "max_drawdown_pct":3.7202893558
   },
   {
@@ -122,7 +38,7 @@
     "mfe":4.9635543214,
     "entry_tag":"",
     "exit_tag":"",
-    "entry_portfolio_value":978185.5360279999,
+    "entry_portfolio_value":976856.9815,
     "max_drawdown_pct":7.0767195767
   },
   {
@@ -143,7 +59,7 @@
     "mfe":5.0804093567,
     "entry_tag":"",
     "exit_tag":"",
-    "entry_portfolio_value":965214.909778,
+    "entry_portfolio_value":963886.35525,
     "max_drawdown_pct":5.8608695652
   },
   {
@@ -152,19 +68,19 @@
     "exit_time":"2025-11-17T16:00:00.000Z",
     "entry_price":54.3,
     "exit_price":53.11,
-    "quantity":17500.0,
+    "quantity":17400.0,
     "side":"Long",
-    "pnl":-20825.0,
-    "net_pnl":-21106.95125,
+    "pnl":-20706.0,
+    "net_pnl":-20986.3401,
     "return_pct":-2.1915285451,
-    "commission":281.95125,
+    "commission":280.3401,
     "duration_bars":1,
     "duration":"P1DT0H0M0S",
     "mae":-3.9779005525,
     "mfe":0.4972375691,
     "entry_tag":"",
     "exit_tag":"",
-    "entry_portfolio_value":967870.809078,
+    "entry_portfolio_value":966493.06905,
     "max_drawdown_pct":4.4529961517
   },
   {
@@ -185,7 +101,7 @@
     "mfe":0.0605204761,
     "entry_tag":"",
     "exit_tag":"",
-    "entry_portfolio_value":942716.607928,
+    "entry_portfolio_value":941508.66455,
     "max_drawdown_pct":3.3870967742
   },
   {
@@ -206,7 +122,7 @@
     "mfe":1.7604208822,
     "entry_tag":"",
     "exit_tag":"",
-    "entry_portfolio_value":918754.528228,
+    "entry_portfolio_value":917546.58485,
     "max_drawdown_pct":3.5593557367
   },
   {
@@ -227,7 +143,7 @@
     "mfe":1.3802760552,
     "entry_tag":"",
     "exit_tag":"",
-    "entry_portfolio_value":900744.967728,
+    "entry_portfolio_value":899537.02435,
     "max_drawdown_pct":3.9265982636
   },
   {
@@ -248,7 +164,7 @@
     "mfe":50.0600240096,
     "entry_tag":"",
     "exit_tag":"",
-    "entry_portfolio_value":887836.342528,
+    "entry_portfolio_value":886628.39915,
     "max_drawdown_pct":23.0
   }
 ]

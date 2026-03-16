@@ -12,6 +12,9 @@ import glob
 import threading
 import uuid
 import time as _time
+import urllib.parse
+import os
+from functools import lru_cache
 from akquant import Strategy, run_backtest
 from .myStrategy import DualMAStrategy, ThreeDayReverseStrategy, RSIStrategy, VWAPStrategy
 # ── 常量 ─────────────────────────────────────────────
@@ -27,6 +30,10 @@ DATA_DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), '../../data_download
 WATCHLIST_FILE = os.path.join(os.path.dirname(__file__), '../../data/watchlist.json')
 DEFAULT_STRATEGY_FILE = os.path.join(os.path.dirname(__file__), '../../data/stock_default_strategy.json')
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), '../../data/settings.json')
+AI_GUIDE_HISTORY_FILE = os.path.join(os.path.dirname(__file__), '../../data/ai_guide_history.json')
+BOARD_COMPONENTS_FILE = os.path.join(os.path.dirname(__file__), '../../data/board_components.json')
+TODAY_STOCK_JSON_FILE = os.path.join(os.path.dirname(__file__), '../../data/today_stock_data.json')
+CSI300_LIST_FILE = os.path.join(os.path.dirname(__file__), '../../data/stock_csi300_spot_em.csv')
 
 STRATEGIES = [
     {'id': 'DualMA', 'name': '双均线策略', 'description': '使用快线和慢线金叉/死叉进行交易'},
@@ -39,7 +46,275 @@ STRATEGIES = [
 _bg_tasks = {}          # {task_id: {status, result, created, description}}
 _bg_tasks_lock = threading.Lock()
 _TASK_EXPIRE_SECONDS = 600  # 10 分钟后自动清理
+_ai_guide_history_lock = threading.Lock()
+_today_stock_lock = threading.Lock()
+_board_update_lock = threading.Lock()
+_board_update_state = {
+    'task_id': '',
+    'running': False,
+    'progress': 0,
+    'current': 0,
+    'total': 0,
+    'message': '',
+    'updated_at': '',
+    'error': '',
+}
 
+
+def _load_ai_guide_history():
+    if not os.path.exists(AI_GUIDE_HISTORY_FILE):
+        return {}
+    try:
+        with open(AI_GUIDE_HISTORY_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_ai_guide_history(data):
+    os.makedirs(os.path.dirname(AI_GUIDE_HISTORY_FILE), exist_ok=True)
+    with open(AI_GUIDE_HISTORY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _get_ai_guide_record(stock_code):
+    code = _normalize_stock_code(stock_code)
+    if not code:
+        return None
+    with _ai_guide_history_lock:
+        history = _load_ai_guide_history()
+        rec = history.get(code)
+    return rec if isinstance(rec, dict) else None
+
+
+def _set_ai_guide_record(stock_code, payload):
+    code = _normalize_stock_code(stock_code)
+    if not code or not isinstance(payload, dict):
+        return
+    with _ai_guide_history_lock:
+        history = _load_ai_guide_history()
+        history[code] = payload
+        _save_ai_guide_history(history)
+
+
+def _append_ai_guide_record(stock_code, payload, max_records=50):
+    code = _normalize_stock_code(stock_code)
+    if not code or not isinstance(payload, dict):
+        return
+    with _ai_guide_history_lock:
+        history = _load_ai_guide_history()
+        old = history.get(code)
+        records = []
+
+        if isinstance(old, dict):
+            if isinstance(old.get('records'), list):
+                records = [x for x in old.get('records') if isinstance(x, dict)]
+            elif old.get('guide_text'):
+                records = [
+                    {
+                        'query': old.get('query', ''),
+                        'google_url': old.get('google_url', ''),
+                        'guide_text': old.get('guide_text', ''),
+                        'updated_at': old.get('updated_at', ''),
+                    }
+                ]
+
+        records.append(payload)
+        if max_records > 0 and len(records) > max_records:
+            records = records[-max_records:]
+
+        history[code] = {
+            'query': payload.get('query', ''),
+            'google_url': payload.get('google_url', ''),
+            'guide_text': payload.get('guide_text', ''),
+            'prompt': payload.get('prompt', ''),
+            'updated_at': payload.get('updated_at', ''),
+            'records': records,
+        }
+        _save_ai_guide_history(history)
+
+
+def _to_float_or_none(value):
+    try:
+        num = float(value)
+    except Exception:
+        return None
+    if pd.isna(num):
+        return None
+    return num
+
+
+def _normalize_today_row_from_record(record, stock_code='', date_text=''):
+    if not isinstance(record, dict):
+        return None
+    code = _normalize_stock_code(record.get('股票代码', '') or stock_code)
+    if not code:
+        return None
+    row_date = str(record.get('日期', '') or date_text).strip()
+    if not row_date:
+        return None
+    return {
+        '日期': row_date,
+        '股票代码': code,
+        '开盘': _to_float_or_none(record.get('开盘')),
+        '收盘': _to_float_or_none(record.get('收盘')),
+        '最高': _to_float_or_none(record.get('最高')),
+        '最低': _to_float_or_none(record.get('最低')),
+        '成交量': _to_float_or_none(record.get('成交量')),
+        '成交额': _to_float_or_none(record.get('成交额')),
+        '振幅': _to_float_or_none(record.get('振幅')),
+        '涨跌幅': _to_float_or_none(record.get('涨跌幅')),
+        '涨跌额': _to_float_or_none(record.get('涨跌额')),
+        '换手率': _to_float_or_none(record.get('换手率')),
+    }
+
+
+def _build_today_row_from_hist_series(row, stock_code, today_dash):
+    if row is None:
+        return None
+    record = {
+        '日期': str(row.get('日期', today_dash) if hasattr(row, 'get') else today_dash),
+        '股票代码': stock_code,
+        '开盘': row.get('开盘') if hasattr(row, 'get') else None,
+        '收盘': row.get('收盘') if hasattr(row, 'get') else None,
+        '最高': row.get('最高') if hasattr(row, 'get') else None,
+        '最低': row.get('最低') if hasattr(row, 'get') else None,
+        '成交量': row.get('成交量') if hasattr(row, 'get') else None,
+        '成交额': row.get('成交额') if hasattr(row, 'get') else None,
+        '振幅': row.get('振幅') if hasattr(row, 'get') else None,
+        '涨跌幅': row.get('涨跌幅') if hasattr(row, 'get') else None,
+        '涨跌额': row.get('涨跌额') if hasattr(row, 'get') else None,
+        '换手率': row.get('换手率') if hasattr(row, 'get') else None,
+    }
+    return _normalize_today_row_from_record(record, stock_code=stock_code, date_text=today_dash)
+
+
+def _load_today_stock_payload():
+    if not os.path.exists(TODAY_STOCK_JSON_FILE):
+        return {}
+    try:
+        with open(TODAY_STOCK_JSON_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_today_stock_payload(payload):
+    os.makedirs(os.path.dirname(TODAY_STOCK_JSON_FILE), exist_ok=True)
+    with open(TODAY_STOCK_JSON_FILE, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def _replace_today_stock_rows(today_dash, rows_by_code):
+    normalized = {}
+    for code, row in (rows_by_code or {}).items():
+        n_code = _normalize_stock_code(code)
+        n_row = _normalize_today_row_from_record(row, stock_code=n_code, date_text=today_dash)
+        if n_code and n_row:
+            normalized[n_code] = n_row
+    payload = {
+        'snapshot_date': today_dash,
+        'updated_at': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'rows': normalized,
+    }
+    with _today_stock_lock:
+        _save_today_stock_payload(payload)
+
+
+def _upsert_today_stock_row(stock_code, row_dict, today_dash):
+    n_code = _normalize_stock_code(stock_code)
+    n_row = _normalize_today_row_from_record(row_dict, stock_code=n_code, date_text=today_dash)
+    if not n_code or not n_row:
+        return
+    with _today_stock_lock:
+        payload = _load_today_stock_payload()
+        payload_date = str(payload.get('snapshot_date', '') or '')
+        rows = payload.get('rows', {}) if isinstance(payload.get('rows', {}), dict) else {}
+        if payload_date != today_dash:
+            rows = {}
+        rows[n_code] = n_row
+        payload = {
+            'snapshot_date': today_dash,
+            'updated_at': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'rows': rows,
+        }
+        _save_today_stock_payload(payload)
+
+
+def _get_today_stock_row(stock_code):
+    n_code = _normalize_stock_code(stock_code)
+    if not n_code:
+        return None
+    today_dash = pd.to_datetime('today').strftime('%Y-%m-%d')
+    with _today_stock_lock:
+        payload = _load_today_stock_payload()
+    if str(payload.get('snapshot_date', '') or '') != today_dash:
+        return None
+    rows = payload.get('rows', {}) if isinstance(payload.get('rows', {}), dict) else {}
+    row = rows.get(n_code)
+    return _normalize_today_row_from_record(row, stock_code=n_code, date_text=today_dash)
+
+
+def _merge_today_row_into_raw_df(raw_df, stock_code):
+    today_row = _get_today_stock_row(stock_code)
+    if not today_row:
+        return raw_df
+
+    if raw_df is None or raw_df.empty:
+        return pd.DataFrame([today_row])
+
+    if '日期' in raw_df.columns:
+        result_df = raw_df[raw_df['日期'].astype(str) != today_row['日期']].copy()
+        return pd.concat([result_df, pd.DataFrame([today_row])], ignore_index=True)
+
+    en_row = {
+        'date': today_row['日期'],
+        'code': today_row['股票代码'],
+        'open': today_row['开盘'],
+        'close': today_row['收盘'],
+        'high': today_row['最高'],
+        'low': today_row['最低'],
+        'volume': today_row['成交量'],
+        'amount': today_row['成交额'],
+        'amplitude': today_row['振幅'],
+        'pct_chg': today_row['涨跌幅'],
+        'chg': today_row['涨跌额'],
+        'turnover': today_row['换手率'],
+    }
+    date_col = 'date' if 'date' in raw_df.columns else raw_df.columns[0]
+    result_df = raw_df[raw_df[date_col].astype(str) != today_row['日期']].copy()
+    return pd.concat([result_df, pd.DataFrame([en_row])], ignore_index=True)
+
+
+def _load_raw_kline_df(stock_code):
+    n_code = _normalize_stock_code(stock_code)
+    kline_path = _find_kline_path_by_code(n_code)
+    raw_df = pd.DataFrame()
+    if kline_path and os.path.exists(kline_path):
+        try:
+            raw_df = pd.read_csv(kline_path, encoding='utf-8-sig')
+        except pd.errors.EmptyDataError:
+            raw_df = pd.DataFrame()
+    raw_df = _merge_today_row_into_raw_df(raw_df, n_code)
+    return raw_df, kline_path
+
+
+def _purge_today_row_from_csv(csv_path, today_dash):
+    if not csv_path or not os.path.exists(csv_path):
+        return
+    try:
+        old_df = pd.read_csv(csv_path, encoding='utf-8-sig')
+    except pd.errors.EmptyDataError:
+        return
+    except Exception:
+        return
+    if old_df.empty or '日期' not in old_df.columns:
+        return
+    new_df = old_df[old_df['日期'].astype(str) != today_dash]
+    if len(new_df) != len(old_df):
+        new_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
 
 def _cleanup_old_tasks():
     """清理过期的任务记录"""
@@ -98,7 +373,12 @@ def task_status(request):
 
 def _load_settings():
     """读取全局设置 {max_workers: int, ...}"""
-    defaults = {'max_workers': 8, 'commission': 0.00015}
+    defaults = {
+        'max_workers': 8,
+        'commission': 0.00015,
+        'ml_train_start_date': '',
+        'ml_train_end_date': '',
+    }
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
@@ -134,6 +414,163 @@ def _get_last_update(directory):
     return datetime.fromtimestamp(latest).strftime('%Y-%m-%d %H:%M')
 
 
+def _load_board_components_payload():
+    if not os.path.exists(BOARD_COMPONENTS_FILE):
+        return {}
+    try:
+        with open(BOARD_COMPONENTS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _to_float_safe(value):
+    try:
+        if value is None or value == '':
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _fetch_board_components_once(board_name):
+    import akshare as ak
+
+    cons_df = ak.stock_board_industry_cons_em(symbol=board_name)
+    rows = []
+    for _, row in cons_df.iterrows():
+        code = _normalize_stock_code(row.get('代码', ''))
+        if not code:
+            continue
+        rows.append({
+            'code': code,
+            'name': str(row.get('名称', '')).strip(),
+            'latest_price': _to_float_safe(row.get('最新价')),
+            'pct_change': _to_float_safe(row.get('涨跌幅')),
+            'turnover_rate': _to_float_safe(row.get('换手率')),
+            'pe_ttm': _to_float_safe(row.get('市盈率-动态')),
+        })
+    return rows
+
+
+def _update_board_data_stream():
+    import akshare as ak
+    from datetime import datetime
+
+    board_df = ak.stock_board_industry_name_em()
+    total = len(board_df)
+    boards = []
+    failed = []
+    last_progress = -5
+
+    for idx, (_, row) in enumerate(board_df.iterrows()):
+        board_name = str(row.get('板块名称', '')).strip()
+        if not board_name:
+            continue
+
+        try:
+            components = _fetch_board_components_once(board_name)
+            boards.append({
+                'board_name': board_name,
+                'board_code': str(row.get('板块代码', '')).strip(),
+                'latest_price': _to_float_safe(row.get('最新价')),
+                'pct_change': _to_float_safe(row.get('涨跌幅')),
+                'total_market_value': _to_float_safe(row.get('总市值')),
+                'turnover_rate': _to_float_safe(row.get('换手率')),
+                'rise_count': int(_to_float_safe(row.get('上涨家数')) or 0),
+                'fall_count': int(_to_float_safe(row.get('下跌家数')) or 0),
+                'leading_stock': str(row.get('领涨股票', '')).strip(),
+                'leading_stock_pct': _to_float_safe(row.get('领涨股票-涨跌幅')),
+                'components': components,
+            })
+        except Exception as e:
+            failed.append({'board_name': board_name, 'error': str(e)})
+
+        progress = round((idx + 1) / total * 100, 1) if total else 100
+        if progress - last_progress >= 5 or idx == total - 1:
+            last_progress = int(progress // 5) * 5
+            yield {
+                'progress': progress,
+                'current': idx + 1,
+                'total': total,
+                'ok_count': len(boards),
+                'failed_count': len(failed),
+            }
+
+        _time.sleep(0.15)
+
+    payload = {
+        'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'board_type': 'industry',
+        'board_count': len(boards),
+        'failed_count': len(failed),
+        'boards': boards,
+        'failed': failed,
+    }
+
+    os.makedirs(os.path.dirname(BOARD_COMPONENTS_FILE), exist_ok=True)
+    with open(BOARD_COMPONENTS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+    yield {
+        'status': 'ok',
+        'progress': 100,
+        'message': f'板块更新完成：成功 {len(boards)} 个，失败 {len(failed)} 个',
+        'updated_at': payload['updated_at'],
+        'board_count': len(boards),
+        'failed_count': len(failed),
+    }
+
+
+def _get_board_update_snapshot():
+    with _board_update_lock:
+        return dict(_board_update_state)
+
+
+def _set_board_update_state(**kwargs):
+    with _board_update_lock:
+        _board_update_state.update(kwargs)
+
+
+def _run_board_update_task(task_id):
+    _set_board_update_state(
+        task_id=task_id,
+        running=True,
+        progress=0,
+        current=0,
+        total=0,
+        message='正在更新板块数据...',
+        error='',
+    )
+    try:
+        for event in _update_board_data_stream():
+            if event.get('status') == 'ok':
+                _set_board_update_state(
+                    running=False,
+                    progress=100,
+                    current=event.get('total', _board_update_state.get('total', 0)),
+                    total=event.get('total', _board_update_state.get('total', 0)),
+                    message=event.get('message', '板块更新完成'),
+                    updated_at=event.get('updated_at', ''),
+                    error='',
+                )
+            else:
+                _set_board_update_state(
+                    progress=event.get('progress', _board_update_state.get('progress', 0)),
+                    current=event.get('current', _board_update_state.get('current', 0)),
+                    total=event.get('total', _board_update_state.get('total', 0)),
+                    message='正在更新板块数据...',
+                    error='',
+                )
+    except Exception as e:
+        _set_board_update_state(
+            running=False,
+            message='板块更新失败',
+            error=str(e),
+        )
+
+
 def _load_nonexistent_codes(file_path):
     if not os.path.exists(file_path):
         return set()
@@ -156,6 +593,103 @@ def _normalize_stock_code(code):
     if text.isdigit():
         text = text.zfill(6)
     return text
+
+
+def _calc_ml_next_close_change_pct(stock_code, train_days=50):
+    """计算 ML 预测摘要：近4日预测vs实际涨跌幅 + 下一日预测涨跌幅。"""
+    try:
+        code = _normalize_stock_code(stock_code)
+        if not code:
+            return None
+
+        raw_df, kline_path = _load_raw_kline_df(code)
+        if (raw_df is None or raw_df.empty) and (not kline_path or not os.path.exists(kline_path)):
+            return None
+        if raw_df.empty:
+            return None
+
+        if '日期' in raw_df.columns:
+            raw_df.columns = [
+                'date', 'code', 'open', 'close', 'high', 'low',
+                'volume', 'amount', 'amplitude', 'pct_chg', 'chg', 'turnover'
+            ]
+        else:
+            raw_df.columns = [
+                'date', 'code', 'open', 'close', 'high', 'low',
+                'volume', 'amount', 'amplitude', 'pct_chg', 'chg', 'turnover'
+            ]
+
+        for col in ['open', 'close', 'high', 'low', 'volume', 'amount', 'turnover']:
+            if col not in raw_df.columns:
+                raw_df[col] = 0.0
+            raw_df[col] = pd.to_numeric(raw_df[col], errors='coerce')
+
+        raw_df['date_ts'] = pd.to_datetime(raw_df['date'], errors='coerce')
+        df = raw_df.dropna(subset=['open', 'close', 'high', 'low', 'date_ts']).reset_index(drop=True)
+
+        settings = _load_settings()
+        range_start = str(settings.get('ml_train_start_date', '') or '').strip()
+        range_end = str(settings.get('ml_train_end_date', '') or '').strip()
+        if range_start:
+            try:
+                start_ts = pd.to_datetime(range_start)
+                df = df[df['date_ts'] >= start_ts]
+            except Exception:
+                pass
+        if range_end:
+            try:
+                end_ts = pd.to_datetime(range_end)
+                df = df[df['date_ts'] <= end_ts]
+            except Exception:
+                pass
+        df = df.reset_index(drop=True)
+        if len(df) < train_days + 2:
+            return None
+
+        recent_rows = []
+        start_idx = max(train_days, len(df) - 4)
+        for idx in range(start_idx, len(df)):
+            train_df = df.iloc[idx - train_days:idx].reset_index(drop=True)
+            model = _fit_linear_nextday_model(train_df, _DEFAULT_ML_FEATURE_CONFIG)
+            if model is None:
+                continue
+            _, pred_close = _predict_next_from_window(train_df, model)
+            if pred_close is None:
+                continue
+
+            prev_close = float(df.iloc[idx - 1]['close'])
+            actual_close = float(df.iloc[idx]['close'])
+            if prev_close == 0:
+                continue
+
+            pred_pct = (float(pred_close) - prev_close) / prev_close * 100.0
+            actual_pct = (actual_close - prev_close) / prev_close * 100.0
+            recent_rows.append({
+                'date': str(df.iloc[idx]['date']),
+                'pred_pct': round(pred_pct, 2),
+                'actual_pct': round(actual_pct, 2),
+            })
+
+        next_train_df = df.iloc[-train_days:].reset_index(drop=True)
+        next_model = _fit_linear_nextday_model(next_train_df, _DEFAULT_ML_FEATURE_CONFIG)
+        if next_model is None:
+            return None
+        _, pred_close_next = _predict_next_from_window(next_train_df, next_model)
+        if pred_close_next is None:
+            return None
+
+        latest_close = float(df.iloc[-1]['close'])
+        if latest_close == 0:
+            return None
+        next_pct = (float(pred_close_next) - latest_close) / latest_close * 100.0
+
+        return {
+            'next_pred_pct': round(next_pct, 2),
+            'latest_date': str(df.iloc[-1]['date']),
+            'recent': recent_rows,
+        }
+    except Exception:
+        return None
 
 
 def _spot_row_to_daily_row(spot_row, today_str, code):
@@ -213,25 +747,91 @@ def _is_prev_trade_day(last_date_str, today_str, trade_day_to_index):
     return today_idx - last_idx == 1
 
 
+@lru_cache(maxsize=1)
 def load_name_mapping():
-    """从三个映射CSV中加载 代码→名称"""
+    """从映射CSV中加载 代码→名称（统一6位代码）"""
     name_mapping = {}
     mapping_files = [
         os.path.join(DATA_DIR, 'fund_etf_spot_em_eastmoney.csv'),
         os.path.join(DATA_DIR, 'stock_sh_a_spot_em.csv'),
         os.path.join(DATA_DIR, 'stock_sz_a_spot_em.csv'),
+        CSI300_LIST_FILE,
+        os.path.join(DATA_DIR, 'stock_csi50_spot_em.csv'),
+        os.path.join(DATA_DIR, '中证300股票名称.csv'),
+        os.path.join(DATA_DIR, '中证50股票名称.csv'),
     ]
     for fpath in mapping_files:
         if not os.path.exists(fpath):
             continue
         try:
             df = pd.read_csv(fpath)
-            if '代码' in df.columns and '名称' in df.columns:
+            code_col = ''
+            for c in ['代码', '品种代码', '证券代码', 'symbol', 'code']:
+                if c in df.columns:
+                    code_col = c
+                    break
+            name_col = ''
+            for c in ['名称', '品种名称', '证券简称', 'name']:
+                if c in df.columns:
+                    name_col = c
+                    break
+            if code_col and name_col:
                 for _, row in df.iterrows():
-                    name_mapping[str(row['代码'])] = row['名称']
+                    code = _normalize_stock_code(row.get(code_col, ''))
+                    if not code:
+                        continue
+                    name = str(row.get(name_col, '')).strip()
+                    if not name:
+                        continue
+                    name_mapping[code] = name
         except Exception as e:
             print(f"Error loading {fpath}: {e}")
     return name_mapping
+
+
+def _load_csi300_stock_items():
+    candidates = [
+        CSI300_LIST_FILE,
+        os.path.join(DATA_DIR, '中证300股票名称.csv'),
+        os.path.join(DATA_DIR, '中证300_股票名称.csv'),
+    ]
+    target = ''
+    for p in candidates:
+        if os.path.exists(p):
+            target = p
+            break
+    if not target:
+        return []
+
+    try:
+        df = pd.read_csv(target, encoding='utf-8-sig')
+    except Exception:
+        return []
+
+    code_col = ''
+    for c in ['代码', '品种代码', '证券代码', 'symbol', 'code']:
+        if c in df.columns:
+            code_col = c
+            break
+    name_col = ''
+    for c in ['名称', '品种名称', '证券简称', 'name']:
+        if c in df.columns:
+            name_col = c
+            break
+    if not code_col:
+        return []
+
+    items = []
+    seen = set()
+    for _, row in df.iterrows():
+        code = _normalize_stock_code(row.get(code_col, ''))
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        name = str(row.get(name_col, '')).strip() if name_col else ''
+        items.append({'code': code, 'name': name or code})
+    items.sort(key=lambda x: x['code'])
+    return items
 
 
 def get_analysis_data(data_type, start_date='', end_date='',strategy_id='DualMA', 
@@ -411,12 +1011,32 @@ def _load_existing_results(strategy_id):
             except Exception:
                 pass
 
+        # 读取最近买卖点日期（orders.json 中最近一笔已成交单）
+        last_signal_date = ''
+        last_signal_side = ''
+        orders_path = os.path.join(report_dir, f'{code}_orders.json')
+        if os.path.exists(orders_path):
+            try:
+                with open(orders_path, 'r', encoding='utf-8') as f:
+                    orders = json.load(f)
+                if isinstance(orders, list):
+                    filled_orders = [o for o in orders if isinstance(o, dict) and o.get('status') == 'filled']
+                    if filled_orders:
+                        filled_orders.sort(key=lambda x: str(x.get('created_at', '')), reverse=True)
+                        latest = filled_orders[0]
+                        last_signal_date = str(latest.get('created_at', ''))[:10]
+                        last_signal_side = str(latest.get('side', '')).strip().lower()
+            except Exception:
+                pass
+
         results[data_type].append({
             'code': code,
             'name': name_mapping.get(code, 'N/A'),
             'total_return_pct': total_return_pct,
             'start_price': sp,
             'end_price': ep,
+            'last_signal_date': last_signal_date,
+            'last_signal_side': last_signal_side,
             'data_type': data_type,
         })
 
@@ -502,17 +1122,153 @@ def index(request):
         else:
             signal_text = '无操作'
         item['trade_signal'] = signal_text
+        item['trade_signal_side'] = signal if signal in ['buy', 'sell'] else ''
+
+        ml_summary = _calc_ml_next_close_change_pct(code, train_days=50)
+        item['ml_prediction'] = ml_summary if isinstance(ml_summary, dict) else None
+        if isinstance(ml_summary, dict):
+            item['ml_next_close_change_pct'] = ml_summary.get('next_pred_pct')
+        else:
+            item['ml_next_close_change_pct'] = None
         watchlist_items.append(item)
+
+    board_payload = _load_board_components_payload()
+    board_rows = []
+    for b in board_payload.get('boards', []) if isinstance(board_payload.get('boards'), list) else []:
+        if not isinstance(b, dict):
+            continue
+        board_rows.append({
+            'board_name': str(b.get('board_name', '')).strip(),
+            'board_code': str(b.get('board_code', '')).strip(),
+            'pct_change': b.get('pct_change'),
+            'leading_stock': str(b.get('leading_stock', '')).strip(),
+            'leading_stock_pct': b.get('leading_stock_pct'),
+        })
+    board_rows.sort(key=lambda x: float(x.get('pct_change') or 0), reverse=True)
 
     return render(request, 'index.html', {
         'strategies': STRATEGIES,
         'sh_count': _count_csv(sh_dir),
         'sz_count': _count_csv(sz_dir),
         'etf_count': _count_csv(etf_dir),
+        'csi300_count': len(_load_csi300_stock_items()),
         'sh_update': _get_last_update(sh_dir) or '未更新',
         'sz_update': _get_last_update(sz_dir) or '未更新',
         'etf_update': _get_last_update(etf_dir) or '未更新',
         'watchlist_items': watchlist_items,
+        'board_rows': board_rows,
+        'board_updated_at': str(board_payload.get('updated_at', '') or ''),
+    })
+
+
+def board_components_api(request):
+    board_name = str(request.GET.get('board_name', '')).strip()
+    if not board_name:
+        return JsonResponse({'status': 'error', 'message': '缺少板块名称'}, status=400)
+
+    payload = _load_board_components_payload()
+    boards = payload.get('boards', []) if isinstance(payload.get('boards'), list) else []
+    target = None
+    for board in boards:
+        if isinstance(board, dict) and str(board.get('board_name', '')).strip() == board_name:
+            target = board
+            break
+
+    if not target:
+        return JsonResponse({'status': 'error', 'message': f'未找到板块：{board_name}'}, status=404)
+
+    components = target.get('components', []) if isinstance(target.get('components'), list) else []
+    default_strategies = _load_default_strategies()
+    fallback_sid = STRATEGIES[0]['id'] if STRATEGIES else 'DualMA'
+    enriched_components = []
+    for comp in components:
+        if not isinstance(comp, dict):
+            continue
+        code = _normalize_stock_code(comp.get('code', ''))
+        sid = default_strategies.get(code, fallback_sid) if code else fallback_sid
+        item = dict(comp)
+        item['default_strategy_id'] = sid
+        item['detail_url'] = f'/strategy/{sid}/{code}/' if code else ''
+        enriched_components.append(item)
+
+    return JsonResponse({
+        'status': 'ok',
+        'board_name': board_name,
+        'board_code': str(target.get('board_code', '')).strip(),
+        'components': enriched_components,
+    })
+
+
+@csrf_exempt
+def update_board_data(request):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
+
+    def event_stream():
+        try:
+            for event in _update_board_data_stream():
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'status': 'error', 'message': f'板块更新失败：{e}'}, ensure_ascii=False)}\n\n"
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
+
+
+@csrf_exempt
+def start_board_update(request):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
+
+    snapshot = _get_board_update_snapshot()
+    if snapshot.get('running') and snapshot.get('task_id'):
+        return JsonResponse({'status': 'running', 'task_id': snapshot.get('task_id')})
+
+    task_id = uuid.uuid4().hex[:10]
+    t = threading.Thread(target=_run_board_update_task, args=(task_id,), daemon=True)
+    t.start()
+    return JsonResponse({'status': 'running', 'task_id': task_id})
+
+
+def board_update_status(request):
+    task_id = str(request.GET.get('task_id', '')).strip()
+    snapshot = _get_board_update_snapshot()
+    if task_id and snapshot.get('task_id') and task_id != snapshot.get('task_id') and not snapshot.get('running'):
+        return JsonResponse({'status': 'not_found', 'message': '任务不存在或已结束'})
+
+    if snapshot.get('error'):
+        return JsonResponse({
+            'status': 'error',
+            'task_id': snapshot.get('task_id', ''),
+            'progress': snapshot.get('progress', 0),
+            'current': snapshot.get('current', 0),
+            'total': snapshot.get('total', 0),
+            'message': snapshot.get('message', ''),
+            'error': snapshot.get('error', ''),
+            'updated_at': snapshot.get('updated_at', ''),
+        })
+
+    if snapshot.get('running'):
+        return JsonResponse({
+            'status': 'running',
+            'task_id': snapshot.get('task_id', ''),
+            'progress': snapshot.get('progress', 0),
+            'current': snapshot.get('current', 0),
+            'total': snapshot.get('total', 0),
+            'message': snapshot.get('message', ''),
+            'updated_at': snapshot.get('updated_at', ''),
+        })
+
+    return JsonResponse({
+        'status': 'done',
+        'task_id': snapshot.get('task_id', ''),
+        'progress': snapshot.get('progress', 100),
+        'current': snapshot.get('current', snapshot.get('total', 0)),
+        'total': snapshot.get('total', 0),
+        'message': snapshot.get('message', ''),
+        'updated_at': snapshot.get('updated_at', ''),
     })
 
 
@@ -546,10 +1302,20 @@ def settings_view(request):
                 commission = float(request.POST.get('commission', settings.get('commission', 0.00015)))
                 commission = max(0, commission)
                 settings['commission'] = commission
+
+                ml_train_start_date = str(request.POST.get('ml_train_start_date', '') or '').strip()
+                ml_train_end_date = str(request.POST.get('ml_train_end_date', '') or '').strip()
+                if ml_train_start_date:
+                    pd.to_datetime(ml_train_start_date)
+                if ml_train_end_date:
+                    pd.to_datetime(ml_train_end_date)
+                settings['ml_train_start_date'] = ml_train_start_date
+                settings['ml_train_end_date'] = ml_train_end_date
+
                 _save_settings(settings)
-                messages.success(request, f'设置已保存（并发线程数：{mw}，佣金率：{commission}）')
+                messages.success(request, f'设置已保存（并发线程数：{mw}，佣金率：{commission}，ML范围：{ml_train_start_date or "全部"} ~ {ml_train_end_date or "全部"}）')
             except (ValueError, TypeError):
-                messages.error(request, '线程数和佣金率必须为数字')
+                messages.error(request, '设置项格式错误（线程数/佣金率/日期）')
     commission = settings.get('commission', 0.00015)
     return render(request, 'settings.html', {'settings': settings, 'commission': commission})
 
@@ -626,11 +1392,14 @@ def _update_single_stock_data(stock_code):
     os.makedirs(data_dir, exist_ok=True)
     csv_path = os.path.join(data_dir, f'{stock_code}.csv')
     today_str = pd.to_datetime('today').strftime('%Y%m%d')
+    today_dash = pd.to_datetime(today_str, format='%Y%m%d').strftime('%Y-%m-%d')
     start_default = '20230101'
+    use_today_json = os.path.basename(data_dir) in ['上证日线', '深证日线']
 
     try:
         # 判断是追加还是新建
         append = False
+        refresh_today = False
         fetch_start = start_default
         if os.path.exists(csv_path):
             try:
@@ -642,13 +1411,19 @@ def _update_single_stock_data(stock_code):
                 df = df.sort_values(by='日期', ascending=True)
                 last_date = pd.to_datetime(df.iloc[-1]['日期'])
                 if last_date.strftime('%Y%m%d') >= today_str:
-                    return {'status': 'ok', 'message': f'{stock_code} 数据已是最新（{last_date.strftime("%Y-%m-%d")}）'}
-                fetch_start = (last_date + pd.Timedelta(days=1)).strftime('%Y%m%d')
-                append = True
+                    fetch_start = today_str
+                    append = False
+                    refresh_today = True
+                else:
+                    fetch_start = (last_date + pd.Timedelta(days=1)).strftime('%Y%m%d')
+                    append = True
             else:
                 # 文件存在但为空或无日期列，也视为追加（保留文件头）
                 fetch_start = start_default
                 append = True
+
+        if use_today_json:
+            _purge_today_row_from_csv(csv_path, today_dash)
 
         kwargs = dict(symbol=stock_code, period='daily',
                       start_date=fetch_start, end_date=today_str)
@@ -658,23 +1433,72 @@ def _update_single_stock_data(stock_code):
         _time.sleep(5)  # 避免请求过快被封禁
 
         if new_df is None or new_df.empty:
+            if refresh_today:
+                return {'status': 'ok', 'message': f'{stock_code} 当日暂无可覆盖新数据（已保留原数据）'}
+            return {'status': 'ok', 'message': f'{stock_code} 无新数据可更新'}
+
+        today_written = False
+        if use_today_json and '日期' in new_df.columns:
+            today_rows = new_df[new_df['日期'].astype(str) == today_dash]
+            if not today_rows.empty:
+                latest_today_row = _build_today_row_from_hist_series(today_rows.iloc[-1], stock_code, today_dash)
+                if latest_today_row:
+                    _upsert_today_stock_row(stock_code, latest_today_row, today_dash)
+                    today_written = True
+                new_df = new_df[new_df['日期'].astype(str) != today_dash].reset_index(drop=True)
+
+        if new_df.empty:
+            if today_written:
+                return {'status': 'ok', 'message': f'{stock_code} 更新成功，已覆盖当日JSON数据 1 条'}
+            if refresh_today:
+                return {'status': 'ok', 'message': f'{stock_code} 当日暂无可覆盖新数据（已保留原数据）'}
             return {'status': 'ok', 'message': f'{stock_code} 无新数据可更新'}
 
         if append:
             new_df.to_csv(csv_path, mode='a', index=False,
                           encoding='utf-8-sig', header=False)
         else:
-            new_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+            if refresh_today and os.path.exists(csv_path):
+                try:
+                    old_df = pd.read_csv(csv_path, encoding='utf-8-sig')
+                except pd.errors.EmptyDataError:
+                    old_df = pd.DataFrame()
+
+                if not old_df.empty and '日期' in old_df.columns:
+                    old_df = old_df[old_df['日期'].astype(str) != today_dash]
+                    merged_df = pd.concat([old_df, new_df], ignore_index=True)
+                    merged_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                else:
+                    new_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+            else:
+                new_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
 
         new_count = len(new_df)
+        if today_written:
+            return {'status': 'ok', 'message': f'{stock_code} 更新成功，历史新增 {new_count} 条，当日JSON已覆盖'}
+        if refresh_today:
+            return {'status': 'ok', 'message': f'{stock_code} 更新成功，已覆盖当日数据 {new_count} 条'}
         return {'status': 'ok', 'message': f'{stock_code} 更新成功，新增 {new_count} 条数据'}
     except Exception as e:
         return {'status': 'error', 'message': f'{stock_code} 更新失败：{e}'}
 
 
+def _find_kline_path_by_code(stock_code):
+    kline_directories = [
+        os.path.join(DATA_DIR, '基金_东方财富'),
+        os.path.join(DATA_DIR, '上证日线'),
+        os.path.join(DATA_DIR, '深证日线'),
+    ]
+    for d in kline_directories:
+        p = os.path.join(d, f'{stock_code}.csv')
+        if os.path.exists(p):
+            return p
+    return None
+
+
 @csrf_exempt
 def update_watchlist_data(request):
-    """仅更新自选股数据 API (AJAX POST)"""
+    """更新自选股数据并重算对应策略 API (AJAX POST)"""
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
 
@@ -703,14 +1527,76 @@ def update_watchlist_data(request):
         else:
             errors += 1
 
+    # 按自选里的 (code, strategy_id) 重算对应策略
+    strategy_pairs = []
+    seen = set()
+    for w in wl:
+        code = str(w.get('code', '')).strip()
+        strategy_id = str(w.get('strategy_id', '')).strip()
+        if not code or not strategy_id:
+            continue
+        key = (code, strategy_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        strategy_pairs.append(key)
+
+    strategy_recalc_ok = 0
+    strategy_recalc_errors = 0
+    strategy_details = []
+    for code, strategy_id in strategy_pairs:
+        kline_path = _find_kline_path_by_code(code)
+        if not kline_path:
+            strategy_recalc_errors += 1
+            strategy_details.append({
+                'code': code,
+                'strategy_id': strategy_id,
+                'status': 'error',
+                'message': '找不到K线数据，无法重算策略',
+            })
+            continue
+
+        try:
+            _recalc_single_stock(strategy_id, code, kline_path)
+            strategy_recalc_ok += 1
+            strategy_details.append({
+                'code': code,
+                'strategy_id': strategy_id,
+                'status': 'ok',
+                'message': '策略重算完成',
+            })
+        except Exception as e:
+            strategy_recalc_errors += 1
+            strategy_details.append({
+                'code': code,
+                'strategy_id': strategy_id,
+                'status': 'error',
+                'message': f'策略重算失败：{e}',
+            })
+
+    today_payload = _load_today_stock_payload()
+    today_snapshot_date = str(today_payload.get('snapshot_date', '') or '')
+    today_rows = today_payload.get('rows', {}) if isinstance(today_payload.get('rows', {}), dict) else {}
+    today_rows_count = len(today_rows)
+
     return JsonResponse({
         'status': 'ok',
-        'message': f'自选股更新完成：共 {total} 只，更新 {updated} 只，跳过 {skipped} 只，失败 {errors} 只',
+        'message': (
+            f'自选股更新完成：共 {total} 只，更新 {updated} 只，跳过 {skipped} 只，失败 {errors} 只；'
+            f'策略重算 {len(strategy_pairs)} 个，成功 {strategy_recalc_ok} 个，失败 {strategy_recalc_errors} 个'
+        ),
+        'today_json_file': TODAY_STOCK_JSON_FILE,
+        'today_snapshot_date': today_snapshot_date,
+        'today_rows_count': today_rows_count,
         'total': total,
         'updated': updated,
         'skipped': skipped,
         'errors': errors,
         'details': details,
+        'strategy_recalc_total': len(strategy_pairs),
+        'strategy_recalc_ok': strategy_recalc_ok,
+        'strategy_recalc_errors': strategy_recalc_errors,
+        'strategy_details': strategy_details,
     })
 
 
@@ -725,6 +1611,45 @@ def update_single_stock(request):
         result = _update_single_stock_data(stock_code)
         return JsonResponse(result)
     return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
+
+
+@csrf_exempt
+def recalc_watchlist_ml(request):
+    """手动重算首页自选股 ML 预测摘要。"""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
+
+    try:
+        payload = json.loads(request.body or '{}')
+    except Exception:
+        payload = {}
+
+    stock_code = _normalize_stock_code(payload.get('code', ''))
+    if not stock_code:
+        return JsonResponse({'status': 'error', 'message': '缺少股票代码'}, status=400)
+
+    train_days = payload.get('train_days', 50)
+    try:
+        train_days = int(train_days)
+    except Exception:
+        train_days = 50
+    train_days = max(20, min(300, train_days))
+
+    ml_summary = _calc_ml_next_close_change_pct(stock_code, train_days=train_days)
+    if not isinstance(ml_summary, dict):
+        return JsonResponse({
+            'status': 'error',
+            'message': f'{stock_code} ML重算失败：数据不足或模型不可用',
+            'code': stock_code,
+        })
+
+    return JsonResponse({
+        'status': 'ok',
+        'message': f'{stock_code} ML预测已重算',
+        'code': stock_code,
+        'ml_prediction': ml_summary,
+        'ml_next_close_change_pct': ml_summary.get('next_pred_pct'),
+    })
 
 
 def _recalc_single_stock(strategy_id, stock_code, kline_path, start_date='', end_date=''):
@@ -742,8 +1667,12 @@ def _recalc_single_stock(strategy_id, stock_code, kline_path, start_date='', end
         if os.path.exists(old_file):
             os.remove(old_file)
 
-    # 读取K线数据
-    df = pd.read_csv(kline_path)
+    # 读取K线数据（历史CSV + 当日JSON）
+    merged_df, _ = _load_raw_kline_df(stock_code)
+    if merged_df is not None and not merged_df.empty:
+        df = merged_df
+    else:
+        df = pd.read_csv(kline_path)
     if len(df) < 2:
         return
     df['date'] = pd.to_datetime(df.iloc[:, 0])
@@ -902,7 +1831,9 @@ def strategy_detail(request, strategy_id, stock_code):
 
     # 不再同步处理强制重算——改用 start_recalc_task 异步 API
 
-    kline_data = pd.read_csv(kline_path)
+    kline_data, _ = _load_raw_kline_df(stock_code)
+    if kline_data is None or kline_data.empty:
+        return render(request, 'error.html', {'message': f'找不到股票 {stock_code} 的K线数据'})
     if '日期' in kline_data.columns:
         kline_data.columns = [
             "date", "code","open", "close", "high", "low",
@@ -915,6 +1846,37 @@ def strategy_detail(request, strategy_id, stock_code):
         ]
         if 'code' in kline_data.columns:
             kline_data = kline_data.drop('code', axis=1)
+
+    # 保留全量历史 K 线，前端默认只展示最近 50 天，并允许通过滑块查看更早数据
+    try:
+        kline_data['date'] = pd.to_datetime(kline_data['date'], errors='coerce')
+        kline_data = kline_data.dropna(subset=['date']).sort_values('date').reset_index(drop=True)
+        kline_data['date'] = kline_data['date'].dt.strftime('%Y-%m-%d')
+    except Exception:
+        pass
+
+    # ML 交易模拟改为前端按需触发，避免首屏打开股票页时同步重算导致等待过久
+    ml_result = {
+        'buy_indices': [],
+        'sell_indices': [],
+        'buy_dates': [],
+        'sell_dates': [],
+        'trades': [],
+        'round_trips': [],
+        'equity_curve': [],
+        'total_return': None,
+        'total_profit': None,
+        'total_cost': None,
+        'total_cost_pct': None,
+        'initial_cash': initial_cash,
+        'final_cash': initial_cash,
+        'commission_rate': None,
+        'threshold_pct': 1.0,
+        'train_days': 50,
+        'start_date': '',
+        'end_date': '',
+        'trade_count': 0,
+    }
 
     # 交易信息：从报告目录的 trades JSON 加载
     report_dir = REPORT_DIRS.get(strategy_id, '')
@@ -1043,12 +2005,26 @@ def strategy_detail(request, strategy_id, stock_code):
         item['total_return_pct'] = item['strategies'].get(strategy_id)
         watchlist_items.append(item)
     watchlist_items_json = json.dumps(watchlist_items, ensure_ascii=False)
+    is_in_watchlist = any(w.get('code') == stock_code and w.get('strategy_id') == strategy_id for w in wl)
 
     # 当前股票的默认策略
     default_strategies = _load_default_strategies()
     fallback_sid = STRATEGIES[0]['id'] if STRATEGIES else 'DualMA'
     stock_default_strategy = default_strategies.get(stock_code, fallback_sid)
 
+    saved_ai = _get_ai_guide_record(stock_code) or {}
+    saved_ai_text = str(saved_ai.get('guide_text', '') or '')
+    saved_ai_query = str(saved_ai.get('query', '') or '')
+    saved_ai_google_url = str(saved_ai.get('google_url', '') or '')
+    saved_ai_prompt = str(saved_ai.get('prompt', '') or '')
+    saved_ai_updated_at = str(saved_ai.get('updated_at', '') or '')
+    saved_ai_count = 0
+    if isinstance(saved_ai.get('records'), list):
+        saved_ai_count = len(saved_ai.get('records'))
+    elif saved_ai_text:
+        saved_ai_count = 1
+
+    global_settings = _load_settings()
     from datetime import date as _date
     return render(request, 'strategy_detail.html', {
         'strategy_id': strategy_id,
@@ -1062,11 +2038,757 @@ def strategy_detail(request, strategy_id, stock_code):
         'strategy_comparison_json': strategy_comparison_json,
         'watchlist_items': watchlist_items,
         'watchlist_items_json': watchlist_items_json,
+        'is_in_watchlist': is_in_watchlist,
         'strategies': STRATEGIES,
         'strategies_json': json.dumps([{'id': s['id'], 'name': s['name']} for s in STRATEGIES], ensure_ascii=False),
         'stock_default_strategy': stock_default_strategy,
         'initial_cash': initial_cash,
         'today': _date.today().strftime('%Y-%m-%d'),
+        'ai_guide_saved_text': saved_ai_text,
+        'ai_guide_saved_text_json': json.dumps(saved_ai_text, ensure_ascii=False),
+        'ai_guide_saved_query': saved_ai_query,
+        'ai_guide_saved_google_url': saved_ai_google_url,
+        'ai_guide_saved_prompt_json': json.dumps(saved_ai_prompt, ensure_ascii=False),
+        'ai_guide_saved_updated_at': saved_ai_updated_at,
+        'ai_guide_saved_count': saved_ai_count,
+        'ml_train_start_date': str(global_settings.get('ml_train_start_date', '') or ''),
+        'ml_train_end_date': str(global_settings.get('ml_train_end_date', '') or ''),
+        'ml_sim_result': json.dumps(ml_result, ensure_ascii=False),
+    })
+
+
+_DEFAULT_ML_FEATURE_CONFIG = {
+    'use_ma5': True,
+    'use_ma10': True,
+    'use_ma20': True,
+    'use_ma30': True,
+    'use_ma60': False,
+    'use_vol_chg1': True,
+    'use_vol_chg5': True,
+    'use_atr14': True,
+}
+
+
+def _normalize_ml_feature_config(raw):
+    cfg = dict(_DEFAULT_ML_FEATURE_CONFIG)
+    if not isinstance(raw, dict):
+        return cfg
+    for k in cfg.keys():
+        if k in raw:
+            v = raw.get(k)
+            cfg[k] = bool(v)
+    return cfg
+
+
+def _build_ml_feature_frame(df, feature_config=None):
+    cfg = _normalize_ml_feature_config(feature_config)
+
+    needed = ['open', 'close', 'high', 'low', 'volume', 'amount', 'turnover']
+    d = df.copy()
+    for col in needed:
+        if col not in d.columns:
+            d[col] = 0.0
+        d[col] = pd.to_numeric(d[col], errors='coerce')
+
+    X = pd.DataFrame({
+        'open': d['open'],
+        'close': d['close'],
+        'high': d['high'],
+        'low': d['low'],
+        'volume': d['volume'].fillna(0),
+        'amount': d['amount'].fillna(0),
+        'turnover': d['turnover'].fillna(0),
+        'ret1': d['close'].pct_change().fillna(0),
+        'range_pct': ((d['high'] - d['low']) / d['close'].replace(0, pd.NA)).fillna(0),
+    })
+
+    if cfg.get('use_ma5'):
+        X['ma5'] = d['close'].rolling(5).mean().fillna(0)
+    if cfg.get('use_ma10'):
+        X['ma10'] = d['close'].rolling(10).mean().fillna(0)
+    if cfg.get('use_ma20'):
+        X['ma20'] = d['close'].rolling(20).mean().fillna(0)
+    if cfg.get('use_ma30'):
+        X['ma30'] = d['close'].rolling(30).mean().fillna(0)
+    if cfg.get('use_ma60'):
+        X['ma60'] = d['close'].rolling(60).mean().fillna(0)
+
+    if cfg.get('use_vol_chg1'):
+        X['vol_chg1'] = d['volume'].pct_change(1).replace([pd.NA, float('inf'), float('-inf')], 0).fillna(0)
+    if cfg.get('use_vol_chg5'):
+        X['vol_chg5'] = d['volume'].pct_change(5).replace([pd.NA, float('inf'), float('-inf')], 0).fillna(0)
+
+    if cfg.get('use_atr14'):
+        prev_close = d['close'].shift(1)
+        tr1 = (d['high'] - d['low']).abs()
+        tr2 = (d['high'] - prev_close).abs()
+        tr3 = (d['low'] - prev_close).abs()
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        X['atr14'] = tr.rolling(14).mean().fillna(0)
+
+    X = X.replace([float('inf'), float('-inf')], 0).fillna(0)
+    return X, cfg
+
+
+def _fit_linear_nextday_model(train_df, feature_config=None):
+    """使用训练窗口拟合“次日开盘/收盘”线性模型，返回系数。"""
+    import numpy as np
+
+    df = train_df.copy()
+    for col in ['open', 'close', 'high', 'low']:
+        if col not in df.columns:
+            return None
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    df = df.dropna(subset=['open', 'close', 'high', 'low'])
+    if len(df) < 8:
+        return None
+
+    X, cfg = _build_ml_feature_frame(df, feature_config)
+    y_open = df['open'].shift(-1)
+    y_close = df['close'].shift(-1)
+
+    data = pd.concat([X, y_open.rename('y_open'), y_close.rename('y_close')], axis=1).dropna(subset=['y_open', 'y_close'])
+    if len(data) < 6:
+        return None
+
+    feature_cols = list(X.columns)
+    X_np = data[feature_cols].to_numpy(dtype=float)
+    design_np = np.column_stack([np.ones(len(data), dtype=float), X_np])
+
+    y_open_np = data['y_open'].to_numpy(dtype=float)
+    y_close_np = data['y_close'].to_numpy(dtype=float)
+
+    beta_open, *_ = np.linalg.lstsq(design_np, y_open_np, rcond=None)
+    beta_close, *_ = np.linalg.lstsq(design_np, y_close_np, rcond=None)
+
+    return {
+        'feature_cols': feature_cols,
+        'beta_open': beta_open,
+        'beta_close': beta_close,
+        'feature_config': cfg,
+    }
+
+
+def _predict_next_from_window(train_df, model):
+    """基于窗口最后一根K线生成次日开盘/收盘预测。"""
+    df = train_df.copy()
+    X, _ = _build_ml_feature_frame(df, model.get('feature_config') if isinstance(model, dict) else None)
+    if X.empty:
+        return None, None
+
+    last_row = X.iloc[-1].to_dict()
+
+    import numpy as np
+    x = np.array([1.0] + [float(last_row.get(c, 0.0)) for c in model['feature_cols']], dtype=float)
+    pred_open = float(np.dot(x, model['beta_open']))
+    pred_close = float(np.dot(x, model['beta_close']))
+    return pred_open, pred_close
+
+
+def _simulate_ml_trades(kline_df, train_days=50, threshold_pct=1.0, start_date='', end_date=''):
+    """ML交易模拟：比较“预测次日收盘”与“当日收盘”，可配置交易区间与阈值。"""
+    if kline_df is None or kline_df.empty:
+        return {
+            'buy_indices': [],
+            'sell_indices': [],
+            'buy_dates': [],
+            'sell_dates': [],
+            'trades': [],
+            'equity_curve': [],
+            'total_return': 0.0,
+            'total_profit': 0.0,
+            'unrealized_profit': 0.0,
+            'total_cost': 0.0,
+            'total_cost_pct': 0.0,
+            'initial_cash': 100000.0,
+            'final_cash': 100000.0,
+            'final_equity': 100000.0,
+            'open_position': 0,
+            'commission_rate': 0.0,
+            'signal_win_rate': None,
+            'signal_win_count': 0,
+            'signal_total': 0,
+            'threshold_pct': 1.0,
+            'train_days': int(max(20, min(300, int(train_days) if str(train_days).isdigit() else 50))),
+            'start_date': str(start_date or ''),
+            'end_date': str(end_date or ''),
+            'trade_count': 0,
+        }
+
+    try:
+        train_days = int(train_days)
+    except Exception:
+        train_days = 50
+    train_days = max(20, min(300, train_days))
+
+    try:
+        threshold_pct = float(threshold_pct)
+    except Exception:
+        threshold_pct = 1.0
+    threshold_pct = max(0.0, threshold_pct)
+
+    settings = _load_settings()
+    try:
+        ml_commission_rate = float(settings.get('commission', 0.00015) or 0.0)
+    except Exception:
+        ml_commission_rate = 0.00015
+    ml_commission_rate = max(0.0, ml_commission_rate)
+
+    df = kline_df.copy().reset_index(drop=True)
+    for col in ['open', 'close', 'high', 'low', 'volume', 'amount', 'turnover']:
+        if col not in df.columns:
+            df[col] = 0.0
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    if 'date' not in df.columns:
+        return {
+            'buy_indices': [], 'sell_indices': [], 'buy_dates': [], 'sell_dates': [], 'trades': [], 'equity_curve': [],
+            'total_return': 0.0, 'total_profit': 0.0, 'unrealized_profit': 0.0,
+            'total_cost': 0.0, 'total_cost_pct': 0.0,
+            'initial_cash': 100000.0, 'final_cash': 100000.0, 'final_equity': 100000.0, 'open_position': 0,
+            'commission_rate': ml_commission_rate,
+            'signal_win_rate': None, 'signal_win_count': 0, 'signal_total': 0,
+            'threshold_pct': threshold_pct, 'train_days': train_days,
+            'start_date': str(start_date or ''), 'end_date': str(end_date or ''), 'trade_count': 0,
+        }
+
+    df['date_ts'] = pd.to_datetime(df['date'], errors='coerce')
+    df = df.dropna(subset=['date_ts', 'close']).reset_index(drop=True)
+    if df.empty or len(df) < (train_days + 1):
+        return {
+            'buy_indices': [], 'sell_indices': [], 'buy_dates': [], 'sell_dates': [], 'trades': [], 'equity_curve': [],
+            'total_return': 0.0, 'total_profit': 0.0, 'unrealized_profit': 0.0,
+            'total_cost': 0.0, 'total_cost_pct': 0.0,
+            'initial_cash': 100000.0, 'final_cash': 100000.0, 'final_equity': 100000.0, 'open_position': 0,
+            'commission_rate': ml_commission_rate,
+            'signal_win_rate': None, 'signal_win_count': 0, 'signal_total': 0,
+            'threshold_pct': threshold_pct, 'train_days': train_days,
+            'start_date': str(start_date or ''), 'end_date': str(end_date or ''), 'trade_count': 0,
+        }
+
+    if start_date:
+        try:
+            start_ts = pd.to_datetime(start_date)
+        except Exception:
+            start_ts = None
+    else:
+        start_ts = None
+    if end_date:
+        try:
+            end_ts = pd.to_datetime(end_date)
+        except Exception:
+            end_ts = None
+    else:
+        end_ts = None
+
+    eligible_mask = pd.Series([True] * len(df))
+    if start_ts is not None:
+        eligible_mask = eligible_mask & (df['date_ts'] >= start_ts)
+    if end_ts is not None:
+        eligible_mask = eligible_mask & (df['date_ts'] <= end_ts)
+
+    eligible_indices = [int(i) for i, ok in enumerate(eligible_mask.tolist()) if ok]
+    if not eligible_indices:
+        return {
+            'buy_indices': [], 'sell_indices': [], 'buy_dates': [], 'sell_dates': [], 'trades': [], 'equity_curve': [],
+            'total_return': 0.0, 'total_profit': 0.0, 'unrealized_profit': 0.0,
+            'total_cost': 0.0, 'total_cost_pct': 0.0,
+            'initial_cash': 100000.0, 'final_cash': 100000.0, 'final_equity': 100000.0, 'open_position': 0,
+            'commission_rate': ml_commission_rate,
+            'signal_win_rate': None, 'signal_win_count': 0, 'signal_total': 0,
+            'threshold_pct': threshold_pct, 'train_days': train_days,
+            'start_date': str(start_date or ''), 'end_date': str(end_date or ''), 'trade_count': 0,
+        }
+
+    first_eligible_idx = min(eligible_indices)
+    last_eligible_idx = min(max(eligible_indices), len(df) - 1)
+    start_i = max(train_days - 1, first_eligible_idx)
+    end_i = min(last_eligible_idx, len(df) - 2)  # 需要预测次日，所以 i 最多到 len-2
+
+    ml_buy_indices = []
+    ml_sell_indices = []
+    ml_buy_dates = []
+    ml_sell_dates = []
+    ml_trades = []
+    ml_initial_cash = 100000.0
+    ml_cash = ml_initial_cash
+    ml_pos = 0
+    ml_total_cost = 0.0
+    ml_equity_curve = []
+
+    if start_i <= end_i:
+        for i in range(start_i, end_i + 1):
+            train_df = df.iloc[i - train_days + 1:i + 1].copy()
+            model = _fit_linear_nextday_model(train_df, _DEFAULT_ML_FEATURE_CONFIG)
+            if model is None:
+                continue
+
+            _, pred_close = _predict_next_from_window(train_df, model)
+            today_close = float(df.iloc[i]['close'])
+            if today_close == 0 or pred_close is None:
+                continue
+
+            pred_pct = (float(pred_close) - today_close) / today_close * 100.0
+
+            if pred_pct > threshold_pct and ml_pos == 0:
+                buy_unit_cost = today_close * (1.0 + ml_commission_rate)
+                ml_pos = int(ml_cash // buy_unit_cost) if buy_unit_cost > 0 else 0
+                if ml_pos > 0:
+                    buy_amount = ml_pos * today_close
+                    buy_cost = buy_amount * ml_commission_rate
+                    ml_cash -= (buy_amount + buy_cost)
+                    ml_total_cost += buy_cost
+                    ml_buy_indices.append(i)
+                    ml_buy_dates.append(str(df.iloc[i]['date']))
+                    ml_trades.append({
+                        'type': 'buy',
+                        'idx': i,
+                        'date': str(df.iloc[i]['date']),
+                        'price': today_close,
+                        'qty': int(ml_pos),
+                        'cash': ml_cash,
+                        'pos': ml_pos,
+                        'cost': round(float(buy_cost), 4),
+                        'pred_pct': round(float(pred_pct), 4),
+                    })
+
+            elif pred_pct < -threshold_pct and ml_pos > 0:
+                sell_amount = ml_pos * today_close
+                sell_cost = sell_amount * ml_commission_rate
+                ml_cash += (sell_amount - sell_cost)
+                ml_total_cost += sell_cost
+                ml_trades.append({
+                    'type': 'sell',
+                    'idx': i,
+                    'date': str(df.iloc[i]['date']),
+                    'price': today_close,
+                    'qty': int(ml_pos),
+                    'cash': ml_cash,
+                    'pos': 0,
+                    'cost': round(float(sell_cost), 4),
+                    'pred_pct': round(float(pred_pct), 4),
+                })
+                ml_sell_indices.append(i)
+                ml_sell_dates.append(str(df.iloc[i]['date']))
+                ml_pos = 0
+
+            ml_equity_curve.append(ml_cash + ml_pos * today_close)
+
+    # 区间末不强平：保留持仓，仅按最后收盘价计算未实现收益
+    mark_price = None
+    if last_eligible_idx >= 0:
+        try:
+            mark_price = float(df.iloc[last_eligible_idx]['close'])
+        except Exception:
+            mark_price = None
+    if mark_price is None or not pd.notna(mark_price):
+        try:
+            mark_price = float(df.iloc[-1]['close'])
+        except Exception:
+            mark_price = 0.0
+    if mark_price is None or not pd.notna(mark_price):
+        mark_price = 0.0
+
+    final_equity = ml_cash + ml_pos * mark_price
+    unrealized_profit = ml_pos * mark_price if ml_pos > 0 else 0.0
+    # 精确未实现收益 = 按市值估算权益 - 当前现金（现金已扣除买入金额与手续费）
+    if ml_pos > 0:
+        try:
+            last_buy = next((t for t in reversed(ml_trades) if t.get('type') == 'buy'), None)
+            if last_buy:
+                buy_price = float(last_buy.get('price', 0) or 0)
+                qty_val = int(last_buy.get('qty', 0) or 0)
+                if qty_val > 0 and buy_price > 0:
+                    buy_amount = qty_val * buy_price
+                    buy_fee = float(last_buy.get('cost', 0) or 0)
+                    unrealized_profit = qty_val * mark_price - buy_amount - buy_fee
+        except Exception:
+            pass
+
+    ml_total_profit = final_equity - ml_initial_cash
+    ml_total_return = (ml_total_profit / ml_initial_cash * 100.0) if ml_initial_cash > 0 else 0.0
+    ml_trade_count = len([t for t in ml_trades if t.get('type') == 'buy'])
+
+    signal_total = 0
+    signal_win_count = 0
+    for t in ml_trades:
+        idx = t.get('idx', None)
+        t_type = str(t.get('type', '') or '')
+        if idx is None or not isinstance(idx, int) or idx < 0 or idx >= len(df) - 1:
+            t['signal_win'] = None
+            t['next_day_close'] = None
+            t['next_day_move_pct'] = None
+            continue
+        try:
+            today_close = float(df.iloc[idx]['close'])
+            next_close = float(df.iloc[idx + 1]['close'])
+            if not pd.notna(today_close) or not pd.notna(next_close) or today_close == 0:
+                t['signal_win'] = None
+                t['next_day_close'] = None
+                t['next_day_move_pct'] = None
+                continue
+            move_pct = (next_close - today_close) / today_close * 100.0
+            if t_type == 'buy':
+                is_win = move_pct > 0
+            elif t_type == 'sell':
+                is_win = move_pct < 0
+            else:
+                is_win = None
+
+            t['signal_win'] = bool(is_win) if is_win is not None else None
+            t['next_day_close'] = round(float(next_close), 4)
+            t['next_day_move_pct'] = round(float(move_pct), 4)
+
+            if is_win is not None:
+                signal_total += 1
+                if is_win:
+                    signal_win_count += 1
+        except Exception:
+            t['signal_win'] = None
+            t['next_day_close'] = None
+            t['next_day_move_pct'] = None
+
+    signal_win_rate = round(signal_win_count / signal_total * 100.0, 2) if signal_total > 0 else None
+
+    round_trips = []
+    open_buy = None
+    for t in ml_trades:
+        if t.get('type') == 'buy':
+            open_buy = t
+            continue
+        if t.get('type') != 'sell' or not open_buy:
+            continue
+        try:
+            buy_price = float(open_buy.get('price', 0) or 0)
+            sell_price = float(t.get('price', 0) or 0)
+            qty_buy = int(open_buy.get('qty', 0) or 0)
+            qty_sell = int(t.get('qty', 0) or 0)
+            qty = min(qty_buy, qty_sell) if qty_buy > 0 and qty_sell > 0 else max(qty_buy, qty_sell, 0)
+            buy_fee = float(open_buy.get('cost', 0) or 0)
+            sell_fee = float(t.get('cost', 0) or 0)
+        except Exception:
+            open_buy = None
+            continue
+
+        if qty <= 0 or buy_price <= 0 or sell_price <= 0:
+            open_buy = None
+            continue
+
+        buy_amount = qty * buy_price
+        sell_amount = qty * sell_price
+        total_fee = buy_fee + sell_fee
+        pnl = sell_amount - buy_amount - total_fee
+        pnl_pct = (pnl / buy_amount * 100.0) if buy_amount > 0 else 0.0
+
+        round_trips.append({
+            'buy_date': str(open_buy.get('date', '') or ''),
+            'sell_date': str(t.get('date', '') or ''),
+            'buy_price': round(float(buy_price), 4),
+            'sell_price': round(float(sell_price), 4),
+            'qty': int(qty),
+            'pnl': round(float(pnl), 2),
+            'pnl_pct': round(float(pnl_pct), 4),
+            'fee': round(float(total_fee), 2),
+            'buy_signal_win': open_buy.get('signal_win', None),
+            'sell_signal_win': t.get('signal_win', None),
+            'trade_signal_win_rate': (
+                round(
+                    (
+                        (1 if open_buy.get('signal_win') else 0 if open_buy.get('signal_win') is not None else 0)
+                        + (1 if t.get('signal_win') else 0 if t.get('signal_win') is not None else 0)
+                    )
+                    / max(
+                        1,
+                        (1 if open_buy.get('signal_win') is not None else 0)
+                        + (1 if t.get('signal_win') is not None else 0)
+                    ) * 100.0,
+                    2
+                )
+                if (open_buy.get('signal_win') is not None or t.get('signal_win') is not None)
+                else None
+            ),
+        })
+        open_buy = None
+
+    return {
+        'buy_indices': ml_buy_indices,
+        'sell_indices': ml_sell_indices,
+        'buy_dates': ml_buy_dates,
+        'sell_dates': ml_sell_dates,
+        'trades': ml_trades,
+        'round_trips': round_trips,
+        'equity_curve': ml_equity_curve,
+        'total_return': round(float(ml_total_return), 2),
+        'total_profit': round(float(ml_total_profit), 2),
+        'unrealized_profit': round(float(unrealized_profit), 2),
+        'total_cost': round(float(ml_total_cost), 2),
+        'total_cost_pct': round(float(ml_total_cost / ml_initial_cash * 100.0), 4) if ml_initial_cash > 0 else None,
+        'initial_cash': round(float(ml_initial_cash), 2),
+        'final_cash': round(float(ml_cash), 2),
+        'final_equity': round(float(final_equity), 2),
+        'open_position': int(ml_pos),
+        'commission_rate': ml_commission_rate,
+        'signal_win_rate': signal_win_rate,
+        'signal_win_count': int(signal_win_count),
+        'signal_total': int(signal_total),
+        'threshold_pct': round(float(threshold_pct), 4),
+        'train_days': train_days,
+        'start_date': str(start_date or ''),
+        'end_date': str(end_date or ''),
+        'trade_count': ml_trade_count,
+    }
+
+
+@csrf_exempt
+def ml_trade_simulation(request):
+    """按参数重算 ML 交易模拟（起止日期 + 交易阈值）。"""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
+
+    try:
+        body = json.loads(request.body or '{}')
+    except Exception:
+        body = {}
+
+    stock_code = _normalize_stock_code(str(body.get('code', '')))
+    if not stock_code:
+        return JsonResponse({'status': 'error', 'message': '缺少股票代码'}, status=400)
+
+    train_days_raw = body.get('train_days', 50)
+    threshold_pct_raw = body.get('threshold_pct', 1.0)
+    start_date = str(body.get('start_date', '') or '').strip()
+    end_date = str(body.get('end_date', '') or '').strip()
+
+    try:
+        train_days = int(train_days_raw)
+    except Exception:
+        train_days = 50
+    train_days = max(20, min(300, train_days))
+
+    try:
+        threshold_pct = float(threshold_pct_raw)
+    except Exception:
+        threshold_pct = 1.0
+    threshold_pct = max(0.0, threshold_pct)
+
+    kline_data, _ = _load_raw_kline_df(stock_code)
+    if kline_data is None or kline_data.empty:
+        return JsonResponse({'status': 'error', 'message': f'找不到 {stock_code} 的K线数据'}, status=404)
+
+    if '日期' in kline_data.columns:
+        kline_data.columns = [
+            'date', 'code', 'open', 'close', 'high', 'low',
+            'volume', 'amount', 'amplitude', 'pct_chg', 'chg', 'turnover'
+        ]
+    else:
+        kline_data.columns = [
+            'date', 'code', 'open', 'close', 'high', 'low',
+            'volume', 'amount', 'amplitude', 'pct_chg', 'chg', 'turnover'
+        ]
+        if 'code' in kline_data.columns:
+            kline_data = kline_data.drop('code', axis=1)
+
+    # 与详情页保持一致，仅在最近5个月范围内重算
+    try:
+        kline_data['date'] = pd.to_datetime(kline_data['date'], errors='coerce')
+        kline_data = kline_data.dropna(subset=['date']).sort_values('date').reset_index(drop=True)
+        if not kline_data.empty:
+            latest_date = kline_data['date'].max()
+            start_date_5m = latest_date - pd.DateOffset(months=5)
+            recent_kline = kline_data[kline_data['date'] >= start_date_5m].copy()
+            if not recent_kline.empty:
+                kline_data = recent_kline.reset_index(drop=True)
+        kline_data['date'] = kline_data['date'].dt.strftime('%Y-%m-%d')
+    except Exception:
+        pass
+
+    if start_date and end_date:
+        try:
+            if pd.to_datetime(start_date) > pd.to_datetime(end_date):
+                return JsonResponse({'status': 'error', 'message': '开始日期不能晚于结束日期'}, status=400)
+        except Exception:
+            return JsonResponse({'status': 'error', 'message': '日期格式错误，应为 YYYY-MM-DD'}, status=400)
+
+    result = _simulate_ml_trades(
+        kline_data,
+        train_days=train_days,
+        threshold_pct=threshold_pct,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return JsonResponse({'status': 'ok', 'ml_sim_result': result})
+
+
+@csrf_exempt
+def ml_daily_prediction(request):
+    """日线 ML 预测：用设定天数训练，预测下一交易日开盘/收盘，并返回最近可验证对比。"""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
+
+    try:
+        body = json.loads(request.body or '{}')
+    except Exception:
+        body = {}
+
+    stock_code = _normalize_stock_code(str(body.get('code', '')))
+    feature_config = _normalize_ml_feature_config(body.get('feature_config', {}))
+    settings = _load_settings()
+    train_start_date = str(body.get('train_start_date', '') or '').strip() or str(settings.get('ml_train_start_date', '') or '').strip()
+    train_end_date = str(body.get('train_end_date', '') or '').strip() or str(settings.get('ml_train_end_date', '') or '').strip()
+    train_days_raw = body.get('train_days', 50)
+    try:
+        train_days = int(train_days_raw)
+    except Exception:
+        train_days = 50
+    train_days = max(20, min(300, train_days))
+
+    if not stock_code:
+        return JsonResponse({'status': 'error', 'message': '缺少股票代码'}, status=400)
+
+    raw_df, kline_path = _load_raw_kline_df(stock_code)
+    if (raw_df is None or raw_df.empty) and (not kline_path or not os.path.exists(kline_path)):
+        return JsonResponse({'status': 'error', 'message': f'找不到 {stock_code} 的K线数据'}, status=404)
+
+    if raw_df.empty:
+        return JsonResponse({'status': 'error', 'message': 'K线数据为空'}, status=400)
+
+    if '日期' in raw_df.columns:
+        raw_df.columns = [
+            'date', 'code', 'open', 'close', 'high', 'low',
+            'volume', 'amount', 'amplitude', 'pct_chg', 'chg', 'turnover'
+        ]
+    else:
+        raw_df.columns = [
+            'date', 'code', 'open', 'close', 'high', 'low',
+            'volume', 'amount', 'amplitude', 'pct_chg', 'chg', 'turnover'
+        ]
+
+    for col in ['open', 'close', 'high', 'low', 'volume', 'amount', 'turnover']:
+        if col not in raw_df.columns:
+            raw_df[col] = 0.0
+        raw_df[col] = pd.to_numeric(raw_df[col], errors='coerce')
+
+    raw_df['date_ts'] = pd.to_datetime(raw_df['date'], errors='coerce')
+    df = raw_df.dropna(subset=['open', 'close', 'high', 'low', 'date_ts']).reset_index(drop=True)
+
+    # 训练数据日期范围过滤（可选）
+    if train_start_date:
+        try:
+            start_ts = pd.to_datetime(train_start_date)
+        except Exception:
+            return JsonResponse({'status': 'error', 'message': 'train_start_date 格式错误，应为 YYYY-MM-DD'}, status=400)
+        df = df[df['date_ts'] >= start_ts]
+    if train_end_date:
+        try:
+            end_ts = pd.to_datetime(train_end_date)
+        except Exception:
+            return JsonResponse({'status': 'error', 'message': 'train_end_date 格式错误，应为 YYYY-MM-DD'}, status=400)
+        df = df[df['date_ts'] <= end_ts]
+
+    df = df.reset_index(drop=True)
+    min_required = train_days + 2
+    if len(df) < min_required:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'数据不足：当前仅 {len(df)} 条，至少需要 {min_required} 条（日线）。可放宽日期范围或降低训练天数。',
+        }, status=400)
+
+    latest_idx = len(df) - 1
+    verify_train_start = latest_idx - train_days
+    verify_train_end = latest_idx - 1
+    verify_train_df = df.iloc[verify_train_start:verify_train_end + 1].reset_index(drop=True)
+    verify_model = _fit_linear_nextday_model(verify_train_df, feature_config)
+    if verify_model is None:
+        return JsonResponse({'status': 'error', 'message': '训练失败：样本不足或数据异常'}, status=400)
+
+    pred_open_last, pred_close_last = _predict_next_from_window(verify_train_df, verify_model)
+    actual_last = df.iloc[latest_idx]
+
+    next_train_df = df.iloc[-train_days:].reset_index(drop=True)
+    next_model = _fit_linear_nextday_model(next_train_df, feature_config)
+    if next_model is None:
+        return JsonResponse({'status': 'error', 'message': '下一交易日预测训练失败'}, status=400)
+
+    pred_open_next, pred_close_next = _predict_next_from_window(next_train_df, next_model)
+
+    def _safe_num(v, nd=3):
+        try:
+            fv = float(v)
+            if fv != fv:
+                return None
+            return round(fv, nd)
+        except Exception:
+            return None
+
+    actual_open_last = _safe_num(actual_last['open'], 3)
+    actual_close_last = _safe_num(actual_last['close'], 3)
+    err_open = _safe_num((pred_open_last - actual_open_last) if actual_open_last is not None else None, 4)
+    err_close = _safe_num((pred_close_last - actual_close_last) if actual_close_last is not None else None, 4)
+
+    # 构建“实际 vs 预测”开收盘对比序列（滚动训练、逐日预测）
+    compare_start_idx = max(train_days, len(df) - 60)
+    cmp_rows = []
+    for idx in range(compare_start_idx, len(df)):
+        train_window = df.iloc[idx - train_days:idx].reset_index(drop=True)
+        m = _fit_linear_nextday_model(train_window, feature_config)
+        if m is None:
+            continue
+        p_open, p_close = _predict_next_from_window(train_window, m)
+        actual_row = df.iloc[idx]
+        cmp_rows.append({
+            'date': str(actual_row['date']),
+            'actual_open': _safe_num(actual_row['open'], 3),
+            'actual_close': _safe_num(actual_row['close'], 3),
+            'pred_open': _safe_num(p_open, 3),
+            'pred_close': _safe_num(p_close, 3),
+        })
+
+    cmp_dates = [r['date'] for r in cmp_rows]
+    cmp_actual_open = [r['actual_open'] for r in cmp_rows]
+    cmp_actual_close = [r['actual_close'] for r in cmp_rows]
+    cmp_pred_open = [r['pred_open'] for r in cmp_rows]
+    cmp_pred_close = [r['pred_close'] for r in cmp_rows]
+
+    # 在图尾追加“下一交易日预测”点（只有预测值，无实际值）
+    cmp_dates.append('下一交易日(预测)')
+    cmp_actual_open.append(None)
+    cmp_actual_close.append(None)
+    cmp_pred_open.append(_safe_num(pred_open_next, 3))
+    cmp_pred_close.append(_safe_num(pred_close_next, 3))
+
+    return JsonResponse({
+        'status': 'ok',
+        'message': 'ML 日线预测完成',
+        'code': stock_code,
+        'train_days': train_days,
+        'train_samples': train_days,
+        'range_start': str(df.iloc[0]['date']) if len(df) else '',
+        'range_end': str(df.iloc[-1]['date']) if len(df) else '',
+        'range_rows': int(len(df)),
+        'feature_config': feature_config,
+        'feature_cols': list(next_model.get('feature_cols', [])),
+        'verify': {
+            'date': str(actual_last['date']),
+            'pred_open': _safe_num(pred_open_last, 3),
+            'actual_open': actual_open_last,
+            'error_open': err_open,
+            'pred_close': _safe_num(pred_close_last, 3),
+            'actual_close': actual_close_last,
+            'error_close': err_close,
+        },
+        'next_prediction': {
+            'pred_open': _safe_num(pred_open_next, 3),
+            'pred_close': _safe_num(pred_close_next, 3),
+            'latest_date': str(df.iloc[-1]['date']),
+        },
+        'comparison_series': {
+            'dates': cmp_dates,
+            'actual_open': cmp_actual_open,
+            'actual_close': cmp_actual_close,
+            'pred_open': cmp_pred_open,
+            'pred_close': cmp_pred_close,
+        },
     })
 
 
@@ -1085,6 +2807,18 @@ def stock_select(request):
         '上证日线': _list('上证日线'),
         '深证日线': _list('深证日线'),
         '基金_东方财富': _list('基金_东方财富'),
+        '中证300': _load_csi300_stock_items(),
+    }
+    return render(request, 'stock_select.html', {
+        'stocks': stocks,
+        'strategies': STRATEGIES,
+    })
+
+
+def csi300_stock_select(request):
+    """中证300股票列表页"""
+    stocks = {
+        '中证300': _load_csi300_stock_items(),
     }
     return render(request, 'stock_select.html', {
         'stocks': stocks,
@@ -1172,6 +2906,7 @@ def _update_stock_data_stream(data_type, today_str=None):
     adjust = cfg['adjust']
     nonexistent_file = cfg['nonexistent_file']
     nonexistent_codes = _load_nonexistent_codes(nonexistent_file)
+    use_today_json = data_type in ['上证A股', '深证A股']
 
     os.makedirs(data_dir, exist_ok=True)
     stock_list = pd.read_csv(list_csv, encoding='utf-8-sig')
@@ -1218,6 +2953,7 @@ def _update_stock_data_stream(data_type, today_str=None):
             # 判断是追加还是新建
             append = False
             fetch_start = start_default
+            today_dash = pd.to_datetime(today_str, format='%Y%m%d').strftime('%Y-%m-%d')
             if os.path.exists(csv_path):
                 try:
                     df = pd.read_csv(csv_path, encoding='utf-8-sig')
@@ -1228,6 +2964,13 @@ def _update_stock_data_stream(data_type, today_str=None):
                     df = df.sort_values(by='日期', ascending=True)
                     last_date = pd.to_datetime(df.iloc[-1]['日期'])
                     if last_date.strftime('%Y%m%d') >= today_str:
+                        if use_today_json:
+                            today_rows = df[df['日期'].astype(str) == today_dash]
+                            if not today_rows.empty:
+                                today_row = _build_today_row_from_hist_series(today_rows.iloc[-1], code, today_dash)
+                                if today_row:
+                                    _upsert_today_stock_row(code, today_row, today_dash)
+                            _purge_today_row_from_csv(csv_path, today_dash)
                         skipped += 1
                         # 每 10% 推送一次
                         if progress - last_yielded_pct >= 10:
@@ -1242,6 +2985,9 @@ def _update_stock_data_stream(data_type, today_str=None):
                     fetch_start = start_default
                     append = True
 
+            if use_today_json:
+                _purge_today_row_from_csv(csv_path, today_dash)
+
             kwargs = dict(symbol=code, period='daily',
                           start_date=fetch_start, end_date=today_str)
             if adjust:
@@ -1253,6 +2999,23 @@ def _update_stock_data_stream(data_type, today_str=None):
                 if not append:
                     _append_nonexistent_code(nonexistent_file, code, nonexistent_codes)
             else:
+                if use_today_json and '日期' in new_df.columns:
+                    today_rows = new_df[new_df['日期'].astype(str) == today_dash]
+                    if not today_rows.empty:
+                        today_row = _build_today_row_from_hist_series(today_rows.iloc[-1], code, today_dash)
+                        if today_row:
+                            _upsert_today_stock_row(code, today_row, today_dash)
+                        new_df = new_df[new_df['日期'].astype(str) != today_dash].reset_index(drop=True)
+
+                if new_df.empty:
+                    skipped += 1
+                    _time.sleep(0.1)
+                    if progress - last_yielded_pct >= 10:
+                        last_yielded_pct = int(progress // 10) * 10
+                        yield {'progress': progress, 'current': current, 'total': total,
+                               'updated': updated, 'skipped': skipped}
+                    continue
+
                 if append:
                     new_df.to_csv(csv_path, mode='a', index=False,
                                   encoding='utf-8-sig', header=False)
@@ -1310,7 +3073,7 @@ def update_data(request):
 
 @csrf_exempt
 def update_today_data(request):
-    """首页更新当日数据接口：保存 daily_all 并按交易日间隔规则更新日线"""
+    """首页更新当日数据接口：保存当日全量快照（daily_all + data/today_stock_data.json）"""
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
 
@@ -1338,62 +3101,36 @@ def update_today_data(request):
         daily_all_file = os.path.join(daily_all_dir, f'stock_zh_a_spot_em_{today_str}.csv')
         spot_df.to_csv(daily_all_file, index=False, encoding='utf-8-sig')
 
-        spot_df['代码'] = spot_df['代码'].apply(_normalize_stock_code)
-        total = len(spot_df)
-        updated = 0
-        skipped_no_file = 0
-        skipped_gap = 0
-        skipped_invalid = 0
-
+        rows_by_code = {}
         for _, row in spot_df.iterrows():
-            code = row.get('代码', '')
             code = _normalize_stock_code(row.get('代码', ''))
             if not code:
-                skipped_invalid += 1
                 continue
-
-            if code.startswith('6'):
-                csv_path = os.path.join(DATA_DIR, '上证日线', f'{code}.csv')
-            elif code.startswith(('0', '3')):
-                csv_path = os.path.join(DATA_DIR, '深证日线', f'{code}.csv')
-            else:
-                skipped_invalid += 1
-                continue
-
-            if not os.path.exists(csv_path):
-                skipped_no_file += 1
-                continue
-
             try:
-                old_df = pd.read_csv(csv_path, encoding='utf-8-sig')
-            except pd.errors.EmptyDataError:
-                skipped_gap += 1
+                row_df = _spot_row_to_daily_row(row, today_str, code)
+                if row_df is None or row_df.empty:
+                    continue
+                row_dict = row_df.iloc[0].to_dict()
+                norm_row = _normalize_today_row_from_record(row_dict, stock_code=code, date_text=today_date.strftime('%Y-%m-%d'))
+                if norm_row:
+                    rows_by_code[code] = norm_row
+            except Exception:
                 continue
+        _replace_today_stock_rows(today_date.strftime('%Y-%m-%d'), rows_by_code)
 
-            if old_df.empty or '日期' not in old_df.columns:
-                skipped_gap += 1
-                continue
-
-            old_df = old_df.sort_values(by='日期', ascending=True)
-            last_date = old_df.iloc[-1]['日期']
-            if not _is_prev_trade_day(last_date, today_str, trade_day_to_index):
-                skipped_gap += 1
-                continue
-
-            daily_row_df = _spot_row_to_daily_row(row, today_str=today_str, code=code)
-            _upsert_daily_row(csv_path, daily_row_df, today_str=today_str)
-            updated += 1
+        total = len(spot_df)
 
         return JsonResponse({
             'status': 'ok',
-            'message': f'当日数据更新完成（有效交易日 {today_str}）：更新 {updated} 只，缺文件跳过 {skipped_no_file} 只，非隔一交易日跳过 {skipped_gap} 只，无效代码跳过 {skipped_invalid} 只',
+            'message': f'当日数据快照保存完成（有效交易日 {today_str}）：已保存全量CSV和当日JSON，共 {total} 条',
             'daily_all_file': daily_all_file,
+            'today_json_file': TODAY_STOCK_JSON_FILE,
             'effective_today_str': today_str,
             'total': total,
-            'updated': updated,
-            'skipped_no_file': skipped_no_file,
-            'skipped_gap': skipped_gap,
-            'skipped_invalid': skipped_invalid,
+            'updated': 0,
+            'skipped_no_file': 0,
+            'skipped_gap': 0,
+            'skipped_invalid': 0,
         })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': f'更新失败：{e}'}, status=500)
@@ -1517,3 +3254,170 @@ def watchlist_view(request, strategy_id):
         'strategy_name': strategy_name,
         'items': items,
     })
+
+
+@csrf_exempt
+def ai_stock_guide(request):
+    """AI选股指南：使用 Gemini API grounding（Google Search）返回选股参考"""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
+
+    try:
+        body = json.loads(request.body or '{}')
+    except Exception:
+        body = {}
+
+    stock_code = str(body.get('code', '')).strip()
+    stock_name = str(body.get('name', '')).strip()
+    custom_query = str(body.get('query', '')).strip()
+    current_price = body.get('current_price')
+    chip_distribution = body.get('chip_distribution')
+    query = custom_query or (stock_name + ' ' + stock_code + ' 现在能入手吗？').strip()
+    if not query:
+        return JsonResponse({'status': 'error', 'message': '缺少股票名称或代码'}, status=400)
+
+    google_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+    gemini_api_key = os.getenv('GOOGLE_API_KEY', '').strip() or os.getenv('GEMINI_API_KEY', '').strip()
+    if not gemini_api_key:
+        return JsonResponse({
+            'status': 'partial',
+            'message': '未配置 GOOGLE_API_KEY（或 GEMINI_API_KEY），无法调用 Gemini grounding。',
+            'query': query,
+            'google_url': google_url,
+            'guide_text': '',
+        })
+
+    try:
+        chip_text = ''
+        if isinstance(chip_distribution, list) and chip_distribution:
+            valid_bins = []
+            for item in chip_distribution[:12]:
+                if not isinstance(item, dict):
+                    continue
+                low = item.get('low')
+                high = item.get('high')
+                ratio = item.get('ratio')
+                try:
+                    low_f = float(low)
+                    high_f = float(high)
+                    ratio_f = float(ratio)
+                except Exception:
+                    continue
+                valid_bins.append((low_f, high_f, ratio_f))
+
+            valid_bins.sort(key=lambda x: x[2], reverse=True)
+            top_bins = valid_bins[:5]
+            if top_bins:
+                chip_text = '；当前筹码分布(占比前5档)：' + '；'.join([
+                    f"{b[0]:.2f}-{b[1]:.2f}:{b[2]:.2f}%" for b in top_bins
+                ])
+
+        price_text = ''
+        try:
+            if current_price is not None:
+                price_text = f"；当前价：{float(current_price):.2f}"
+        except Exception:
+            price_text = ''
+
+        base_prompt = (
+            f"分析一下股票：{stock_name} ({stock_code}){price_text}{chip_text}。"
+            "请结合最新的市场新闻、财报数据和技术走势，给出现在的入手建议（仅供参考）。"
+            "输出结构：1) 结论（能否入手）2) 关键理由（3-5条）3) 风险提示（2-3条）4) 关注指标。"
+        )
+
+        default_query = (stock_name + ' ' + stock_code + ' 现在能入手吗？').strip()
+        if query and query != default_query:
+            prompt = f"用户额外问题：{query}。请先回答该问题，再给出完整分析。" + base_prompt
+        else:
+            prompt = base_prompt
+
+        payload = {
+            'contents': [
+                {
+                    'parts': [
+                        {
+                            'text': prompt,
+                        }
+                    ]
+                }
+            ]
+        }
+
+        curl_cmd = [
+            'curl',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent',
+            '-H', 'Content-Type: application/json',
+            '-H', f'X-goog-api-key: {gemini_api_key}',
+            '-X', 'POST',
+            '-d', json.dumps(payload, ensure_ascii=False),
+        ]
+
+        result = subprocess.run(
+            curl_cmd,
+            capture_output=True,
+            text=True,
+            timeout=400,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return JsonResponse({
+                'status': 'error',
+                'message': f"获取失败：curl 执行失败（{result.returncode}）：{(result.stderr or '').strip()}",
+                'query': query,
+                'google_url': google_url,
+                'guide_text': '',
+            }, status=500)
+
+        data = json.loads((result.stdout or '').strip() or '{}')
+        error_obj = data.get('error') if isinstance(data, dict) else None
+        if isinstance(error_obj, dict) and error_obj.get('code') == 429:
+            return JsonResponse({
+                'status': 'partial',
+                'message': 'Gemini 请求过于频繁或配额不足，请稍后重试。',
+                'query': query,
+                'google_url': google_url,
+                'guide_text': '',
+            }, status=429)
+
+        candidates = data.get('candidates') or []
+        parts = []
+        if candidates:
+            parts = (candidates[0].get('content') or {}).get('parts') or []
+        text_chunks = [p.get('text', '').strip() for p in parts if isinstance(p, dict) and p.get('text')]
+        guide_text = '\n'.join([t for t in text_chunks if t]).strip()
+
+        if not guide_text:
+            return JsonResponse({
+                'status': 'partial',
+                'message': 'Gemini 未返回有效内容，请稍后重试。',
+                'query': query,
+                'google_url': google_url,
+                'guide_text': '',
+            })
+
+        from datetime import datetime
+        _append_ai_guide_record(stock_code, {
+            'query': query,
+            'google_url': google_url,
+            'guide_text': guide_text,
+            'prompt': prompt,
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        }, max_records=50)
+
+        return JsonResponse({
+            'status': 'ok',
+            'message': '已获取 AI 选股参考内容',
+            'query': query,
+            'google_url': google_url,
+            'prompt': prompt,
+            'guide_text': guide_text,
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'获取失败：{e}',
+            'query': query,
+            'google_url': google_url,
+            'guide_text': '',
+        }, status=500)

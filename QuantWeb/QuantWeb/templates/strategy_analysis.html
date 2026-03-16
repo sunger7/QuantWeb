@@ -15,7 +15,11 @@
 
         .filter-bar { background: #fff; border-radius: 10px; padding: 16px 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
         .filter-bar label { font-weight: 600; }
-        .filter-bar input[type="date"] { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+        .date-input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; min-width: 130px; background:#fff; cursor:pointer; }
+        .ymd-picker { position: fixed; z-index: 9999; background:#fff; border:1px solid #d9e0f2; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); padding:10px; display:none; }
+        .ymd-picker .row { display:flex; gap:6px; align-items:center; }
+        .ymd-picker select { padding:5px 6px; border:1px solid #d5dbed; border-radius:6px; font-size:.85em; }
+        .ymd-picker .ok { margin-left:4px; background:#4361ee; color:#fff; border:none; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:.82em; }
         .filter-bar button { background: #4361ee; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; }
         .filter-bar button:hover { background: #3a56d4; }
 
@@ -37,6 +41,8 @@
         tbody tr:hover { background: #f5f7ff; }
         .positive { color: #e74c3c; }
         .negative { color: #27ae60; }
+        .buy-date { color: #e74c3c; font-weight: 600; }
+        .sell-date { color: #27ae60; font-weight: 600; }
         .fav-btn { padding: 3px 10px; font-size: 0.8em; border: 1px solid #4361ee; border-radius: 5px; background: #fff; color: #4361ee; cursor: pointer; white-space: nowrap; transition: all .2s; }
         .fav-btn:hover { background: #4361ee; color: #fff; }
         .fav-btn.active { background: #e74c3c; color: #fff; border-color: #e74c3c; }
@@ -66,9 +72,9 @@
         <!-- 日期筛选 -->
         <form class="filter-bar" id="analysis-form" method="get" onsubmit="return startAnalysis(event, false)">
             <label>起始日期</label>
-            <input type="date" name="start_date" value="{{ start_date }}">
+            <input id="analysis-start-date" class="date-input" type="text" name="start_date" value="{{ start_date }}" readonly onclick="openYmdPicker(this)">
             <label>结束日期</label>
-            <input type="date" name="end_date" value="{{ end_date }}">
+            <input id="analysis-end-date" class="date-input" type="text" name="end_date" value="{{ end_date }}" readonly onclick="openYmdPicker(this)">
             <button type="submit" id="btn-filter">筛选</button>
             <button type="button" id="btn-force" style="background:#e74c3c;margin-left:auto;" onclick="startAnalysis(null, true)">🔄 强制重算</button>
         </form>
@@ -100,19 +106,21 @@
                             <th onclick="sortTable('table-{{ forloop.counter0 }}', 2)">起始价</th>
                             <th onclick="sortTable('table-{{ forloop.counter0 }}', 3)">结束价</th>
                             <th onclick="sortTable('table-{{ forloop.counter0 }}', 4)">总收益率(%)</th>
+                            <th onclick="sortTable('table-{{ forloop.counter0 }}', 5)">最近买卖点日期</th>
                             <th style="cursor:default;">操作</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for row in items %}
                         <tr>
-                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.code }}</td>
-                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.name }}</td>
-                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.start_price }}</td>
-                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.end_price }}</td>
-                            <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'" class="{% if row.total_return_pct >= 0 %}positive{% else %}negative{% endif %}">
+                            <td onclick="goDetailFromAnalysis('{{ row.code }}')">{{ row.code }}</td>
+                            <td onclick="goDetailFromAnalysis('{{ row.code }}')">{{ row.name }}</td>
+                            <td onclick="goDetailFromAnalysis('{{ row.code }}')">{{ row.start_price }}</td>
+                            <td onclick="goDetailFromAnalysis('{{ row.code }}')">{{ row.end_price }}</td>
+                            <td onclick="goDetailFromAnalysis('{{ row.code }}')" class="{% if row.total_return_pct >= 0 %}positive{% else %}negative{% endif %}">
                                 {{ row.total_return_pct }}%
                             </td>
+                            <td onclick="goDetailFromAnalysis('{{ row.code }}')" class="{% if row.last_signal_side == 'buy' %}buy-date{% elif row.last_signal_side == 'sell' %}sell-date{% endif %}">{{ row.last_signal_date|default:'—' }}</td>
                             <td>
                                 <button class="fav-btn{% if row.code in watchlist_codes %} active{% endif %}"
                                         data-code="{{ row.code }}"
@@ -122,7 +130,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="6" style="text-align:center;color:#999;padding:24px;">暂无数据</td></tr>
+                        <tr><td colspan="7" style="text-align:center;color:#999;padding:24px;">暂无数据</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -132,6 +140,128 @@
     </div>
 
     <script>
+    var __ymdPickerState = { panel: null, target: null, yearSel: null, monthSel: null, daySel: null };
+
+    function _daysInMonth(y, m) {
+        return new Date(y, m, 0).getDate();
+    }
+
+    function _formatDate(y, m, d) {
+        return String(y) + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    }
+
+    function _parseDate(v) {
+        var s = String(v || '').trim();
+        var m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+        return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+    }
+
+    function _buildYmdPicker() {
+        if (__ymdPickerState.panel) return;
+        var panel = document.createElement('div');
+        panel.className = 'ymd-picker';
+        panel.innerHTML = ''
+            + '<div class="row">'
+            + '  <select id="ymd-year"></select>'
+            + '  <select id="ymd-month"></select>'
+            + '  <select id="ymd-day"></select>'
+            + '  <button type="button" class="ok" id="ymd-ok">确定</button>'
+            + '</div>';
+        document.body.appendChild(panel);
+
+        var yearSel = panel.querySelector('#ymd-year');
+        var monthSel = panel.querySelector('#ymd-month');
+        var daySel = panel.querySelector('#ymd-day');
+        var okBtn = panel.querySelector('#ymd-ok');
+
+        var nowY = new Date().getFullYear();
+        for (var y = nowY - 25; y <= nowY + 5; y++) {
+            var op = document.createElement('option');
+            op.value = String(y);
+            op.textContent = y + '年';
+            yearSel.appendChild(op);
+        }
+        for (var mm = 1; mm <= 12; mm++) {
+            var opm = document.createElement('option');
+            opm.value = String(mm);
+            opm.textContent = mm + '月';
+            monthSel.appendChild(opm);
+        }
+
+        function refillDay() {
+            var yv = Number(yearSel.value || nowY);
+            var mv = Number(monthSel.value || 1);
+            var old = Number(daySel.value || 1);
+            var maxD = _daysInMonth(yv, mv);
+            daySel.innerHTML = '';
+            for (var dd = 1; dd <= maxD; dd++) {
+                var opd = document.createElement('option');
+                opd.value = String(dd);
+                opd.textContent = dd + '日';
+                daySel.appendChild(opd);
+            }
+            daySel.value = String(Math.min(old, maxD));
+            if (__ymdPickerState.target) {
+                __ymdPickerState.target.value = _formatDate(yv, mv, Number(daySel.value || 1));
+            }
+        }
+
+        yearSel.addEventListener('change', refillDay);
+        monthSel.addEventListener('change', refillDay);
+        daySel.addEventListener('change', function() {
+            var yv = Number(yearSel.value || nowY);
+            var mv = Number(monthSel.value || 1);
+            var dv = Number(daySel.value || 1);
+            if (__ymdPickerState.target) __ymdPickerState.target.value = _formatDate(yv, mv, dv);
+        });
+        okBtn.addEventListener('click', function() { panel.style.display = 'none'; });
+
+        document.addEventListener('click', function(e) {
+            if (panel.style.display === 'none') return;
+            if (panel.contains(e.target)) return;
+            if (__ymdPickerState.target && e.target === __ymdPickerState.target) return;
+            panel.style.display = 'none';
+        });
+
+        __ymdPickerState = { panel: panel, target: null, yearSel: yearSel, monthSel: monthSel, daySel: daySel };
+    }
+
+    function openYmdPicker(inputEl) {
+        _buildYmdPicker();
+        var panel = __ymdPickerState.panel;
+        var yearSel = __ymdPickerState.yearSel;
+        var monthSel = __ymdPickerState.monthSel;
+        var daySel = __ymdPickerState.daySel;
+        __ymdPickerState.target = inputEl;
+
+        var parsed = _parseDate(inputEl.value);
+        var now = new Date();
+        var y = parsed ? parsed.y : now.getFullYear();
+        var m = parsed ? parsed.m : (now.getMonth() + 1);
+        var d = parsed ? parsed.d : now.getDate();
+
+        yearSel.value = String(y);
+        if (yearSel.value !== String(y)) yearSel.value = yearSel.options[0].value;
+        monthSel.value = String(m);
+
+        var maxD = _daysInMonth(Number(yearSel.value), Number(monthSel.value));
+        daySel.innerHTML = '';
+        for (var dd = 1; dd <= maxD; dd++) {
+            var opd = document.createElement('option');
+            opd.value = String(dd);
+            opd.textContent = dd + '日';
+            daySel.appendChild(opd);
+        }
+        daySel.value = String(Math.min(d, maxD));
+        inputEl.value = _formatDate(Number(yearSel.value), Number(monthSel.value), Number(daySel.value));
+
+        var rect = inputEl.getBoundingClientRect();
+        panel.style.left = (rect.left + window.scrollX) + 'px';
+        panel.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        panel.style.display = 'block';
+    }
+
     /* ── 后台任务：筛选 / 强制重算 ── */
     var _currentTaskId = null;
     var _pollTimer = null;
@@ -324,6 +454,19 @@
         rows.sort((a, b) => {
             const av = a.cells[colIdx]?.innerText || '';
             const bv = b.cells[colIdx]?.innerText || '';
+
+            if (colIdx === 5) {
+                const at = Date.parse(av.trim());
+                const bt = Date.parse(bv.trim());
+                const aEmpty = isNaN(at);
+                const bEmpty = isNaN(bt);
+                if (aEmpty && bEmpty) return 0;
+                if (aEmpty) return 1;
+                if (bEmpty) return -1;
+                if (!isNaN(at) && !isNaN(bt)) return order === 'asc' ? at - bt : bt - at;
+                return order === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+            }
+
             const an = parseFloat(av.replace('%', ''));
             const bn = parseFloat(bv.replace('%', ''));
             if (!isNaN(an) && !isNaN(bn)) return order === 'asc' ? an - bn : bn - an;
@@ -350,6 +493,39 @@
                 btn.textContent = '+ 自选';
             }
         });
+    }
+
+    function goDetailFromAnalysis(code) {
+        var activeTab = document.querySelector('.tab-content.active');
+        if (!activeTab) {
+            window.location.href = '/strategy/{{ strategy_id }}/' + encodeURIComponent(code) + '/';
+            return;
+        }
+
+        var rows = Array.from(activeTab.querySelectorAll('tbody tr')).filter(function(row) {
+            if (!row || !row.cells || row.cells.length < 1) return false;
+            var c = (row.cells[0].innerText || '').trim();
+            return !!c && c !== '暂无数据';
+        });
+
+        var items = rows.map(function(row) {
+            return {
+                code: (row.cells[0].innerText || '').trim(),
+                strategy_id: '{{ strategy_id }}'
+            };
+        }).filter(function(x) { return x.code; });
+
+        var idx = items.findIndex(function(x) { return x.code === code; });
+        if (idx < 0) idx = 0;
+
+        if (!items.length) {
+            window.location.href = '/strategy/{{ strategy_id }}/' + encodeURIComponent(code) + '/';
+            return;
+        }
+
+        var navKey = 'detail_nav_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        sessionStorage.setItem(navKey, JSON.stringify(items));
+        window.location.href = '/strategy/{{ strategy_id }}/' + encodeURIComponent(code) + '/?nav_key=' + encodeURIComponent(navKey) + '&nav_idx=' + idx;
     }
     </script>
 </body>

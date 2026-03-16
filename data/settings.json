@@ -1,4 +1,6 @@
 {
-  "max_workers": 8,
-  "commission": 0.00015
+  "max_workers": 16,
+  "commission": 0.00015,
+  "ml_train_start_date": "2025-08-11",
+  "ml_train_end_date": ""
 }

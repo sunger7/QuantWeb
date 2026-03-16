@@ -34,5 +34,1297 @@
   {
     "code": "605289",
     "strategy_id": "DualMA"
+  },
+  {
+    "code": "300936",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600938",
+    "strategy_id": "RSI"
+  },
+  {
+    "code": "605577",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688316",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688418",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603949",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688246",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601699",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688605",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600885",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688299",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600032",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600603",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603226",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600782",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601008",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "605577",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "301448",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "688234",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159270",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159289",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159288",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159687",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159213",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159520",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159258",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159838",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159887",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159278",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "159272",
+    "strategy_id": "ThreeDayReverse"
+  },
+  {
+    "code": "603312",
+    "strategy_id": "VWAP"
+  },
+  {
+    "code": "603373",
+    "strategy_id": "VWAP"
+  },
+  {
+    "code": "300902",
+    "strategy_id": "VWAP"
+  },
+  {
+    "code": "002119",
+    "strategy_id": "VWAP"
+  },
+  {
+    "code": "000006",
+    "strategy_id": "VWAP"
+  },
+  {
+    "code": "600497",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600271",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600328",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600584",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600971",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601001",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688628",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603130",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688265",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688187",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300498",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300760",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002625",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300476",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300251",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002384",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603893",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300803",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601456",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600522",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601018",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300866",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600930",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601298",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002600",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601077",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601825",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "001391",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "302132",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "301236",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688047",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601058",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688506",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601136",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600066",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688472",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300394",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300502",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600377",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000630",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601127",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002028",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002463",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600482",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688169",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000975",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002422",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600160",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600027",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688009",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688082",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603296",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000807",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600161",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600415",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300442",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600026",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300832",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300418",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600489",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000999",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300308",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600372",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688256",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "301269",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600515",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688271",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600023",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601059",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688041",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601916",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601872",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000617",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688223",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600875",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601607",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000983",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600803",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600039",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600674",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601689",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688303",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "605117",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600233",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000792",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600219",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600188",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002920",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002648",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300661",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300979",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000408",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600089",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603260",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300999",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300896",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688981",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002466",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601898",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000301",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600905",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300782",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601728",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300316",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300759",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601868",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002459",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300750",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002709",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "605499",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688396",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688126",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688111",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601995",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600426",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300274",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600600",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688012",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603195",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002049",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600150",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603392",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600845",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600918",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "688008",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000977",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601816",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603369",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601100",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000708",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002371",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "003816",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300014",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300628",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601658",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300347",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600183",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600989",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601236",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601698",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603501",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002916",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000596",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002938",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300413",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601319",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603019",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603986",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002179",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000661",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002001",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601138",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002311",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600760",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601066",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603259",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601360",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600025",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600346",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603288",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601238",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601808",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600176",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600438",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600809",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601838",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601012",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002601",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603799",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600011",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002460",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601878",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300122",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300015",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002352",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600436",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600919",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600926",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601229",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601881",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002714",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300033",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601877",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000938",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002027",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600061",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "001979",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601211",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601985",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002736",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300059",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600958",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601021",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601788",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601919",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000166",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600570",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "300124",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601225",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002252",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002475",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600018",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002230",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000333",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000963",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "603993",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002236",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600886",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601800",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000725",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002241",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601336",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601633",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601669",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601901",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002594",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601377",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000776",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002415",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600115",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600276",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600406",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600887",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600893",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601818",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601288",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002304",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600999",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601688",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601888",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601618",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601668",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601766",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000100",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600588",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601186",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601899",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601390",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601601",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601939",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000338",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000895",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "002142",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600111",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601009",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601169",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601857",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601088",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000876",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601328",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601998",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601600",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601318",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601166",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601628",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600547",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601111",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600048",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601398",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601006",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "601988",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000768",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000538",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600690",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600660",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600585",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600519",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600362",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000858",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000625",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000651",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000568",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000425",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000157",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000063",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000001",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600009",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600010",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600015",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600016",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600019",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600028",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600029",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600030",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600031",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600036",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "600050",
+    "strategy_id": "DualMA"
+  },
+  {
+    "code": "000002",
+    "strategy_id": "DualMA"
   }
 ]

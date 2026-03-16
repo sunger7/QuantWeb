@@ -52,7 +52,7 @@ if not os.path.exists('深证日线'):
 # 使用tqdm查看code进度条
 from tqdm import tqdm
 
-today = '20260302'
+today = '20260309'
 print(f'today:{today}')
 is_complete = False
 while(not is_complete):

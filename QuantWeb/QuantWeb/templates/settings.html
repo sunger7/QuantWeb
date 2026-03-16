@@ -81,6 +81,15 @@
                 <input type="number" id="commission" name="commission" min="0" max="0.01" step="0.00001" value="{{ settings.commission }}" style="width:120px;margin-bottom:16px;">
                 <p style="font-size:0.82em;color:#888;margin-bottom:8px;">每笔交易的佣金率，建议 0.00015~0.0003，A股券商常见为万分之1.5~3。</p>
                 <div style="color:#4361ee;font-size:1em;margin-bottom:16px;">当前佣金率：<b>{{ commission }}</b></div>
+
+                <label for="ml_train_start_date">ML训练数据范围（全局）</label>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                    <input type="date" id="ml_train_start_date" name="ml_train_start_date" value="{{ settings.ml_train_start_date|default:'' }}" style="width:170px;margin-bottom:0;">
+                    <span style="color:#777;">~</span>
+                    <input type="date" id="ml_train_end_date" name="ml_train_end_date" value="{{ settings.ml_train_end_date|default:'' }}" style="width:170px;margin-bottom:0;">
+                </div>
+                <p style="font-size:0.82em;color:#888;margin-bottom:16px;">留空表示使用全部历史数据。该范围会统一应用到股票页ML预测和首页自选ML列。</p>
+
                 <button type="submit" name="action" value="save_settings">💾 保存设置</button>
             </form>
         </div>

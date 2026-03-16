@@ -1,6 +1,6 @@
 [
   {
-    "id":"5c276095-159f-4108-b4c6-0ee911fab6df",
+    "id":"d399ab76-a455-428d-b193-0166f72b420f",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -20,7 +20,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"a144f9a9-bb7d-4a59-b7c7-f2c744b8ce8c",
+    "id":"4ad2e23c-5be9-4f1f-b22a-015e6a4f76f1",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -40,7 +40,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"384f8462-6bdd-480d-8f2e-d857d81252ef",
+    "id":"cc144d23-1081-4208-8101-34563a43aa60",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -60,7 +60,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"a4fb289c-deee-4268-812e-89aa1281f155",
+    "id":"cbd85eb3-3d43-41d6-bce8-96b92891bffb",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -80,7 +80,7 @@
     "duration":"P3DT0H0M0S"
   },
   {
-    "id":"407bf72b-366d-4894-8c02-0855e4fff4aa",
+    "id":"1556b9d6-9294-44fd-be32-3214c5c735a5",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -100,7 +100,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"fb52c839-8fe0-40e2-8f52-2ad89357b667",
+    "id":"6ada741f-2729-4b94-9eaa-0361512b0868",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -120,7 +120,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"da61c827-b667-452c-940b-6967f2db7de5",
+    "id":"aca1d73f-8e21-4d0a-a4e5-8804b04f2831",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -140,7 +140,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"b2647c61-7593-4a99-b213-b2d2ab5b09ac",
+    "id":"ee39f48c-8050-4770-a4eb-db9c10e3d62d",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -160,7 +160,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"046a4ddb-d0bb-4650-929e-8fe548541505",
+    "id":"6f6b0489-f281-4a34-b70a-b5a2472da81e",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -180,7 +180,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"a4446620-3a3b-47cc-951f-34442420827e",
+    "id":"6ed62383-92dd-4bbd-963f-81bed12de92f",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -200,7 +200,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"93d03db6-b933-4946-bed6-ca22ef998ac6",
+    "id":"5a457831-ae09-4c76-adb2-5c261bd9e42b",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -220,7 +220,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"44f72351-eea6-4ea3-9707-125f3838643c",
+    "id":"60093698-7860-4a13-9a05-bbbf9ea8adbf",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -240,7 +240,7 @@
     "duration":"P5DT0H0M0S"
   },
   {
-    "id":"f65c0a42-e1f9-40d6-8442-b8317c86ef12",
+    "id":"871cfccf-8678-426c-9bef-894fe2b4c44e",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -260,7 +260,7 @@
     "duration":"P3DT0H0M0S"
   },
   {
-    "id":"3f669036-20f7-4454-90ce-043d20b48638",
+    "id":"7af2f36f-814f-418c-97b6-27a9a24d2907",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -280,7 +280,7 @@
     "duration":"P3DT0H0M0S"
   },
   {
-    "id":"43607d11-8c8b-44f7-a6e5-442ab56ae800",
+    "id":"a6222805-0089-4bf1-b5f3-a000e2e24906",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -300,7 +300,7 @@
     "duration":"P12DT0H0M0S"
   },
   {
-    "id":"f548004a-bce8-42e9-91ae-c4b4c3a51fad",
+    "id":"ca804ece-2acd-4774-9e92-6ab611cdff55",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -320,7 +320,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"3e928911-ceeb-42aa-9aa6-0fa15f3db6b7",
+    "id":"ec70e9b2-70e3-4671-b72a-92f5a9ec02df",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -340,7 +340,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"3ad8cc90-fbeb-4dc7-8246-061753e6943a",
+    "id":"dba4d1ec-c7d1-4bfc-8380-ae9a304cd4f1",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -360,7 +360,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"af736dcb-d7b4-4bcd-9795-a63473e1e122",
+    "id":"1d1a9955-018d-4a76-923e-ea907ef3f888",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -380,7 +380,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"cfe5a038-a044-4283-b39c-5cb1b093d60d",
+    "id":"7c1317e4-18dd-43b0-b7a7-9c67e34d0425",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -400,7 +400,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"d309ab56-b08f-4325-95bb-0905e5459fd8",
+    "id":"74bd49f4-78e1-4796-a745-99a557166bb3",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -420,7 +420,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"e39605bd-d69d-4130-940e-b58900254ae7",
+    "id":"25d38abd-e088-480a-8f92-3bdc8b1f4c2a",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -440,7 +440,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"96591bbd-7eba-4cfd-9bea-7afb8dacaab5",
+    "id":"ccd8e319-07f8-40ee-aa6c-ae88e0d71876",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -460,7 +460,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"1499779f-420c-4367-8229-2d93236a59c3",
+    "id":"5a50ef6d-0458-4056-ae28-752ae80c42bd",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -480,7 +480,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"aa509d5f-878e-4ced-8ed0-58b30be79733",
+    "id":"44ed29f7-e991-4d44-806d-20e15cf6e846",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -500,7 +500,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"71ed6a8c-d1f4-4593-8480-c143ba2b1f5e",
+    "id":"3a1ee7be-3e8b-42c4-b386-3cfe1a87d077",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -520,7 +520,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"0aa5179e-3180-4fe7-8050-aa6b9c6533a2",
+    "id":"b2f8f31f-3dcf-43cd-ba3e-8f5ce5d7102b",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -540,7 +540,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"326738da-e8cd-4525-88bb-a3abebf277b9",
+    "id":"864cccb3-dbd6-4852-86dc-7aceb7031740",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -560,7 +560,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"33231ff8-a5d1-4f56-badc-50fc8a6a6385",
+    "id":"d9696d96-4312-49ad-a3a9-c16eca9f2727",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -580,7 +580,7 @@
     "duration":"P3DT0H0M0S"
   },
   {
-    "id":"e028df7b-582c-49e4-9a41-27510d5f52c9",
+    "id":"f8949354-06e0-4600-8520-59afc4e5c3ed",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -600,7 +600,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"53f5b7df-6301-4ad4-975f-8fa1c71416cb",
+    "id":"01dd59fd-eb63-4271-9526-a3f349076dc6",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -620,7 +620,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"9cbb5589-4042-49eb-8869-3def701f94e4",
+    "id":"97ae379d-b050-4a09-8912-01aec41cb321",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -640,7 +640,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"6cf35bb1-f02b-4d8e-b5ab-42b48a376e8c",
+    "id":"bd45b68e-8faf-428d-8e7c-4597a389aa06",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -660,7 +660,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"d7a66a10-6dd9-408b-84b2-683ceae30c92",
+    "id":"b520c971-b4ee-46ed-927c-582785147bac",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -680,7 +680,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"6499cfde-b7af-473a-9345-dd88f5d88d4e",
+    "id":"5f214c54-9847-446f-99d3-9d6eba615a6a",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -700,7 +700,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"8727f93f-3067-4adf-a30e-e085ff102d90",
+    "id":"fc7deb32-e41f-4b2f-85c2-680c9c1206f7",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -720,7 +720,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"11e23bda-5590-4d2a-b7cb-f2c8731a1e3b",
+    "id":"18a73129-7c7e-4d5f-8adf-ea2059f8667d",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -740,7 +740,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"79db1f54-8e3e-4c4c-a716-225f4f063510",
+    "id":"432f4b9c-2a68-4ea6-bbf6-d77a6b5f4d9f",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -760,7 +760,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"3a3354eb-ce75-43f9-958a-f39c9820d3bb",
+    "id":"362029b0-9693-4bc6-8977-8eb0caccf194",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -780,7 +780,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"abe11766-a27e-4ed5-872d-4aa3e52f70c9",
+    "id":"516b3789-9e1c-4d91-b60b-6b315311505b",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -800,7 +800,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"4d6bc2b2-335d-42c0-99e9-da8b9066a735",
+    "id":"22c0dbfa-0e2d-45c7-b9f8-3bd47bea6701",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -820,7 +820,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"27a2ee9d-6fa8-4ba8-8045-75a03138a8dd",
+    "id":"f743c19a-02be-4bd2-bc1e-ead3242430b1",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -840,7 +840,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"6ea74e13-8327-4533-8f74-227070712c40",
+    "id":"fcc6d7bb-2d94-4c3d-8c49-27d05c236443",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -860,7 +860,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"5dbae077-2e60-4c8a-b931-89c04f4461f8",
+    "id":"be8ad031-08c7-48f1-be71-2d6b86a81c6e",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -880,7 +880,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"6a84a7f5-d496-4e41-81ef-58f4def8dd9d",
+    "id":"772db77a-f712-4de1-b92f-a833d50e9094",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -900,7 +900,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"4280cb57-cb64-43e2-91de-c76c05561ff3",
+    "id":"5eb7705a-9ad7-40ef-a8e6-31ae653404c2",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -920,7 +920,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"a4bab676-8bca-498a-88e8-40789d3ef378",
+    "id":"b8d24015-60b6-49c3-9dbd-9fe9e504d9e4",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -940,7 +940,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"1c1598d7-3958-470f-b748-b0ce8ccc7846",
+    "id":"fb79faac-0e92-4681-9308-72ce6282ca99",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -960,7 +960,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"48a6c8c5-18f4-4c35-b4e5-9361f4e1deb7",
+    "id":"21f34ba9-0657-42ec-9301-d92c67c41426",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -980,7 +980,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"f762fbf8-142f-43f6-ab74-b32ee71acc0f",
+    "id":"0035ca28-7f9d-40da-a1f8-99fd6f0994c7",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -1000,7 +1000,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"d206dd48-450b-4298-a769-470bf62500f3",
+    "id":"4498bc9b-584a-44b6-a016-f7f60fb8cbe3",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -1020,7 +1020,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"1329e1ca-c860-4c2a-8009-6b9474b84e33",
+    "id":"f87cbd8e-fe68-4a7f-ac27-2b0ae43291fb",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -1040,7 +1040,7 @@
     "duration":"P2DT0H0M0S"
   },
   {
-    "id":"b569f1dd-8507-4dbf-989c-d29575e0ded2",
+    "id":"5d040022-fa37-413d-8337-d461cd2d77b2",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -1060,7 +1060,7 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"c90f772b-9c4f-417e-87f0-986ea568ec66",
+    "id":"f6bccb5a-c678-4eed-ba53-53e31eae0cd3",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -1080,7 +1080,7 @@
     "duration":"P3DT0H0M0S"
   },
   {
-    "id":"4445c32f-8081-4f9b-ba78-78b45bb605be",
+    "id":"47823d39-191c-4cda-91da-3673c017097f",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -1100,7 +1100,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"9cb681da-7f26-4b91-9e5f-49e6f41c425b",
+    "id":"0edfd4b6-0dcd-4dcb-a731-8cd50ab4610b",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
@@ -1120,7 +1120,7 @@
     "duration":"P1DT0H0M0S"
   },
   {
-    "id":"02b5bbaf-0603-4176-8f6f-f19d7040c2e5",
+    "id":"64ac786a-8239-42d6-9868-7b19593fe512",
     "symbol":"BENCHMARK",
     "side":"buy",
     "order_type":"market",
@@ -1140,23 +1140,23 @@
     "duration":"P4DT0H0M0S"
   },
   {
-    "id":"55cce195-feee-418d-8ea3-0f338e226ed4",
+    "id":"f7ea8c0a-1597-4b3c-949d-d5c5f636a369",
     "symbol":"BENCHMARK",
     "side":"sell",
     "order_type":"market",
     "quantity":54400.0,
-    "filled_quantity":0.0,
+    "filled_quantity":54400.0,
     "limit_price":null,
     "stop_price":null,
-    "avg_price":null,
-    "commission":0.0,
-    "status":"new",
+    "avg_price":22.75,
+    "commission":185.64,
+    "status":"filled",
     "time_in_force":"gtc",
     "created_at":"2026-03-01T16:00:00.000Z",
-    "updated_at":"2026-03-01T16:00:00.000Z",
+    "updated_at":"2026-03-02T16:00:00.000Z",
     "tag":"",
     "reject_reason":"",
-    "filled_value":0.0,
-    "duration":"P0DT0H0M0S"
+    "filled_value":1237600.0,
+    "duration":"P1DT0H0M0S"
   }
 ]

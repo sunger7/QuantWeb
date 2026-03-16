@@ -57,11 +57,11 @@
                 <tbody>
                     {% for row in items %}
                     <tr>
-                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.code }}</td>
-                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.name }}</td>
-                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.start_price }}</td>
-                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'">{{ row.end_price }}</td>
-                        <td onclick="window.location.href='/strategy/{{ strategy_id }}/{{ row.code }}/'" class="{% if row.total_return_pct >= 0 %}positive{% else %}negative{% endif %}">
+                        <td onclick="goDetailFromWatchlist('{{ row.code }}')">{{ row.code }}</td>
+                        <td onclick="goDetailFromWatchlist('{{ row.code }}')">{{ row.name }}</td>
+                        <td onclick="goDetailFromWatchlist('{{ row.code }}')">{{ row.start_price }}</td>
+                        <td onclick="goDetailFromWatchlist('{{ row.code }}')">{{ row.end_price }}</td>
+                        <td onclick="goDetailFromWatchlist('{{ row.code }}')" class="{% if row.total_return_pct >= 0 %}positive{% else %}negative{% endif %}">
                             {{ row.total_return_pct }}%
                         </td>
                         <td>
@@ -100,6 +100,26 @@
                 }
             }
         });
+    }
+
+    function goDetailFromWatchlist(code) {
+        var rows = Array.from(document.querySelectorAll('tbody tr'));
+        var items = rows.map(function(row) {
+            var c = row.cells && row.cells[0] ? (row.cells[0].innerText || '').trim() : '';
+            return { code: c, strategy_id: '{{ strategy_id }}' };
+        }).filter(function(x) { return x.code; });
+
+        var idx = items.findIndex(function(x) { return x.code === code; });
+        if (idx < 0) idx = 0;
+
+        if (!items.length) {
+            window.location.href = '/strategy/{{ strategy_id }}/' + encodeURIComponent(code) + '/';
+            return;
+        }
+
+        var navKey = 'detail_nav_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        sessionStorage.setItem(navKey, JSON.stringify(items));
+        window.location.href = '/strategy/{{ strategy_id }}/' + encodeURIComponent(code) + '/?nav_key=' + encodeURIComponent(navKey) + '&nav_idx=' + idx;
     }
     </script>
 </body>

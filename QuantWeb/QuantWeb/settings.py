@@ -7,6 +7,29 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def _load_env_file(env_path: Path):
+    if not env_path.exists():
+        return
+    try:
+        with env_path.open('r', encoding='utf-8') as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+                if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+                    value = value[1:-1]
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except Exception:
+        pass
+
+
+_load_env_file(BASE_DIR / '.env')
+
 SECRET_KEY = 'django-insecure-quantweb-dev-key-change-in-production'
 
 DEBUG = True

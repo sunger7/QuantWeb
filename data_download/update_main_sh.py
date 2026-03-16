@@ -48,7 +48,7 @@ if not os.path.exists('上证日线'):
 # 使用tqdm查看code进度条
 from tqdm import tqdm
 
-today = '20260302'
+today = '20260312'
 print(f'today:{today}')
 is_complete = False
 while(not is_complete):

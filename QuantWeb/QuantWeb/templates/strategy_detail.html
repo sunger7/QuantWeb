@@ -27,7 +27,7 @@
         .kline-layout { display: flex; gap: 16px; align-items: stretch; }
         .kline-main { flex: 1; min-width: 0; }
         #kline-chart { width: 100%; height: 700px; }
-        .chip-panel { width: 290px; background: #f8f9fa; border: 1px solid #e8ebf2; border-radius: 10px; padding: 12px; overflow: auto; }
+        .chip-panel { width: 380px; background: #f8f9fa; border: 1px solid #e8ebf2; border-radius: 10px; padding: 12px; overflow: auto; }
         .chip-panel h4 { font-size: 0.95em; margin-bottom: 10px; color: #2f3a56; }
         .chip-meta { font-size: 0.8em; color: #666; line-height: 1.6; margin-bottom: 8px; }
         .chip-bars { margin-top: 8px; }
@@ -35,11 +35,12 @@
         .chip-label { display: flex; justify-content: space-between; font-size: 0.74em; color: #555; margin-bottom: 3px; }
         .chip-track { height: 7px; border-radius: 4px; background: #e6eaf2; overflow: hidden; }
         .chip-fill { height: 100%; background: linear-gradient(90deg, #6c7ee1, #8e44ad); }
-        .chip-hist-wrap { margin-top: 12px; border-top: 1px dashed #d9deea; padding-top: 10px; }
+        .chip-hist-wrap { margin-top: 12px; border-top: 1px dashed #d9deea; padding-top: 10px; position: relative; }
         .chip-hist-title { font-size: 0.76em; color: #666; margin-bottom: 8px; }
-        .chip-hist { height: 90px; display: flex; align-items: flex-end; gap: 3px; }
+        .chip-hist { height: 120px; display: flex; align-items: flex-end; gap: 1px; }
         .chip-hist-bar { flex: 1; min-width: 0; background: linear-gradient(180deg, #8aa2ff, #5f74d9); border-radius: 3px 3px 0 0; }
         .chip-hist-range { font-size: 0.72em; color: #777; margin-top: 6px; display: flex; justify-content: space-between; }
+        .chip-hist-marker { position: absolute; bottom: 22px; transform: translateX(-50%); color: #e74c3c; font-size: 13px; font-weight: 700; line-height: 1; display: none; pointer-events: none; }
         .chip-tip { position: fixed; z-index: 9999; pointer-events: none; background: rgba(26,26,46,0.92); color: #fff; font-size: 0.72em; padding: 5px 8px; border-radius: 6px; line-height: 1.45; display: none; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
         @media (max-width: 1200px) {
             .kline-layout { flex-direction: column; }
@@ -67,6 +68,51 @@
         .set-default-btn { padding: 3px 10px; font-size: 0.78em; border: 1px solid #4361ee; border-radius: 5px; background: #fff; color: #4361ee; cursor: pointer; transition: all .2s; }
         .set-default-btn:hover { background: #4361ee; color: #fff; }
         .set-default-btn.active { background: #4361ee; color: #fff; }
+        .ai-guide { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.06); padding:16px; margin-top:8px; }
+        .ai-guide h3 { margin-bottom:10px; font-size:1.05em; color:#2f3a56; }
+        .ai-guide .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+        .ai-guide .query-input { min-width: 340px; max-width: 720px; width: 100%; padding:7px 10px; border:1px solid #d7dced; border-radius:6px; font-size:.84em; }
+        .ai-guide button { background:#4361ee; color:#fff; border:none; border-radius:6px; padding:7px 14px; cursor:pointer; font-size:.86em; }
+        .ai-guide button:disabled { background:#8e9cc7; cursor:not-allowed; }
+        .ai-guide .status { font-size:.82em; color:#666; }
+        .ai-guide .result { background:#f8f9fa; border:1px solid #e8ebf2; border-radius:8px; padding:10px; min-height:120px; line-height:1.6; font-size:.88em; }
+        .ai-guide .result p { margin:0 0 8px 0; }
+        .ai-guide .result ul, .ai-guide .result ol { margin:6px 0 8px 20px; padding:0; }
+        .ai-guide .result li { margin:2px 0; }
+        .ai-guide .result h1, .ai-guide .result h2, .ai-guide .result h3 { margin:8px 0 6px; color:#2f3a56; }
+        .ai-guide .result code { background:#eef1f6; padding:1px 4px; border-radius:4px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .ai-guide .result pre { background:#eef1f6; border-radius:6px; padding:8px 10px; overflow:auto; margin:8px 0; }
+        .ai-guide .result pre code { background:transparent; padding:0; }
+        .ai-guide .result a { color:#2f6de0; text-decoration:underline; }
+        .ai-guide .prompt { margin-top:8px; background:#f4f6fb; border:1px dashed #d7dced; border-radius:8px; padding:8px 10px; font-size:.8em; color:#4d5673; line-height:1.5; white-space:pre-wrap; }
+        .ai-guide .link { margin-top:8px; font-size:.82em; }
+        .nav-btn { background:#fff; color:#4361ee; border:1px solid #4361ee; border-radius:6px; padding:6px 12px; cursor:pointer; font-size:0.82em; }
+        .nav-btn:disabled { color:#aab4d6; border-color:#d7dff4; cursor:not-allowed; }
+        .nav-hint { font-size:0.8em; color:#7a86ad; margin-left:4px; }
+        .date-input { padding:5px 8px; border:1px solid #ddd; border-radius:6px; font-size:0.85em; min-width:128px; background:#fff; cursor:pointer; }
+        .ymd-picker { position: fixed; z-index: 9999; background:#fff; border:1px solid #d9e0f2; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); padding:10px; display:none; }
+        .ymd-picker .row { display:flex; gap:6px; align-items:center; }
+        .ymd-picker select { padding:5px 6px; border:1px solid #d5dbed; border-radius:6px; font-size:.85em; }
+        .ymd-picker .ok { margin-left:4px; background:#4361ee; color:#fff; border:none; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:.82em; }
+        .ml-card { background:#fff; border:1px solid #e8ebf2; border-radius:10px; padding:14px; }
+        .ml-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+        .ml-toolbar input { width:100px; padding:6px 8px; border:1px solid #d7dced; border-radius:6px; font-size:.86em; }
+        .ml-date-input { width:130px !important; }
+        .ml-toolbar button { background:#4361ee; color:#fff; border:none; border-radius:6px; padding:7px 14px; cursor:pointer; font-size:.86em; }
+        .ml-toolbar button:disabled { background:#8e9cc7; cursor:not-allowed; }
+        .ml-status { font-size:.83em; color:#666; }
+        .ml-feature-box { margin-top:8px; background:#f7f9fd; border:1px dashed #d7deef; border-radius:8px; padding:8px 10px; }
+        .ml-feature-box .title { font-size:.8em; color:#556080; margin-bottom:6px; font-weight:600; }
+        .ml-feature-grid { display:flex; flex-wrap:wrap; gap:8px 14px; }
+        .ml-feature-grid label { font-size:.8em; color:#45506d; display:flex; gap:4px; align-items:center; }
+        .ml-table { width:100%; border-collapse:collapse; margin-top:8px; }
+        .ml-table th, .ml-table td { border-bottom:1px solid #edf0f6; padding:8px 10px; font-size:.86em; text-align:left; }
+        .ml-table th { color:#5b6686; background:#f7f9fd; }
+        .ml-pos { color:#e74c3c; font-weight:600; }
+        .ml-neg { color:#27ae60; font-weight:600; }
+        #ml-oc-chart { width:100%; height:320px; margin-top:12px; border:1px solid #edf0f6; border-radius:8px; }
+        #ml-sim-kline-chart { width:100%; height:360px; margin-top:12px; border:1px solid #edf0f6; border-radius:8px; }
+        #ml-sim-summary { margin-top:10px; padding:10px 12px; background:#f9fbff; border:1px solid #e8edf8; border-radius:8px; font-size:.86em; color:#445074; line-height:1.7; }
     </style>
 </head>
 <body>
@@ -84,14 +130,22 @@
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <h2>{{ stock_name }}（{{ stock_code }}）</h2>
                 <button id="update-data-btn" onclick="updateStockData()" style="background:#27ae60;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.82em;">📥 更新数据</button>
+                <button id="watchlist-toggle-btn"
+                        onclick="toggleWatchlist()"
+                        style="background:{% if is_in_watchlist %}#e74c3c{% else %}#4361ee{% endif %};color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.82em;">
+                    {% if is_in_watchlist %}➖ 移除自选{% else %}⭐ 加入自选{% endif %}
+                </button>
                 <span id="update-status" style="color:#4361ee;font-size:0.82em;display:none;"></span>
                 <div class="sub" style="width:100%;">策略：{{ strategy_name }}</div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button id="nav-prev-btn" class="nav-btn" onclick="gotoPrevStock()">⬅ 上一个</button>
+                <button id="nav-next-btn" class="nav-btn" onclick="gotoNextStock()">下一个 ➡</button>
+                <span id="nav-pos-hint" class="nav-hint"></span>
                 <label style="font-size:0.85em;font-weight:600;color:#555;">起始</label>
-                <input id="recalc-start" type="date" value="2023-01-01" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:0.85em;">
+                <input id="recalc-start" class="date-input" type="text" value="2023-01-01" readonly onclick="openYmdPicker(this)">
                 <label style="font-size:0.85em;font-weight:600;color:#555;">结束</label>
-                <input id="recalc-end" type="date" value="{{ today }}" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:0.85em;">
+                <input id="recalc-end" class="date-input" type="text" value="{{ today }}" readonly onclick="openYmdPicker(this)">
                 <button id="recalc-current-btn" onclick="recalcStrategy('{{ strategy_id }}')" style="background:#4361ee;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.9em;">🔄 重算当前策略</button>
                 <button id="recalc-all-btn" onclick="recalcStrategy('')" style="background:#e74c3c;color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.9em;">🔄 重算所有策略</button>
                 <span id="recalc-status" style="color:#4361ee;font-size:0.85em;display:none;"></span>
@@ -102,6 +156,7 @@
             <button class="tab-btn active" onclick="switchTab('kline', this)">线图</button>
             <button class="tab-btn" onclick="switchTab('compare', this)">策略对比</button>
             <button class="tab-btn" onclick="switchTab('report', this)">回测报告</button>
+            <button class="tab-btn" onclick="switchTab('ml', this)">ML预测</button>
         </div>
 
         <!-- K线图 -->
@@ -115,8 +170,9 @@
                     <div class="chip-meta" id="chip-meta">加载中...</div>
                     <div class="chip-bars" id="chip-bars"></div>
                     <div class="chip-hist-wrap">
-                        <div class="chip-hist-title">12档直方图（按该计算日前历史区间）</div>
+                        <div class="chip-hist-title">24档直方图（自适应区间 μ±2σ）</div>
                         <div class="chip-hist" id="chip-hist"></div>
+                        <div class="chip-hist-marker" id="chip-hist-marker">▼</div>
                         <div class="chip-hist-range" id="chip-hist-range"></div>
                     </div>
                 </div>
@@ -183,15 +239,303 @@
             <div class="no-data">暂无回测报告，请先运行策略回测生成报告文件。</div>
             {% endif %}
         </div>
+
+        <div class="tab-panel" id="panel-ml">
+            <div class="ml-card">
+                <h3 style="margin-bottom:10px;">日线 ML 预测（下一交易日开盘/收盘）</h3>
+                <div class="ml-toolbar">
+                    <label style="font-size:.85em;color:#555;font-weight:600;">训练天数</label>
+                    <input id="ml-train-days" type="number" min="20" max="300" step="1" value="50">
+                    <label style="font-size:.85em;color:#555;font-weight:600;">交易起始</label>
+                    <input id="ml-sim-start" class="date-input ml-date-input" type="text" readonly onclick="openYmdPicker(this)">
+                    <label style="font-size:.85em;color:#555;font-weight:600;">交易结束</label>
+                    <input id="ml-sim-end" class="date-input ml-date-input" type="text" readonly onclick="openYmdPicker(this)">
+                    <label style="font-size:.85em;color:#555;font-weight:600;">交易阈值(%)</label>
+                    <input id="ml-threshold-pct" type="number" min="0" max="20" step="0.1" value="1.0" style="width:92px;">
+                    <span style="font-size:.82em;color:#7d86a5;">全局范围：</span>
+                    <span style="font-size:.82em;color:#4361ee;font-weight:600;">
+                        {% if ml_train_start_date or ml_train_end_date %}
+                            {{ ml_train_start_date|default:'最早' }} ~ {{ ml_train_end_date|default:'最新' }}
+                        {% else %}
+                            全部历史数据
+                        {% endif %}
+                    </span>
+                    <button id="ml-predict-btn" onclick="loadMlPrediction()">运行预测</button>
+                    <span class="ml-status" id="ml-status">使用最近 N 天日线训练，默认 50 天。</span>
+                </div>
+                <div class="ml-feature-box">
+                    <div class="title">可配置特征（均线 / 成交量变化率 / ATR）</div>
+                    <div class="ml-feature-grid">
+                        <label><input type="checkbox" id="ml-f-ma5" checked> MA5</label>
+                        <label><input type="checkbox" id="ml-f-ma10" checked> MA10</label>
+                        <label><input type="checkbox" id="ml-f-ma20" checked> MA20</label>
+                        <label><input type="checkbox" id="ml-f-ma30" checked> MA30</label>
+                        <label><input type="checkbox" id="ml-f-ma60"> MA60</label>
+                        <label><input type="checkbox" id="ml-f-volchg1" checked> 成交量变化率1日</label>
+                        <label><input type="checkbox" id="ml-f-volchg5" checked> 成交量变化率5日</label>
+                        <label><input type="checkbox" id="ml-f-atr14" checked> ATR14</label>
+                    </div>
+                </div>
+                <table class="ml-table">
+                    <thead>
+                        <tr>
+                            <th>对比项</th>
+                            <th>预测开盘</th>
+                            <th>实际开盘</th>
+                            <th>开盘误差</th>
+                            <th>预测收盘</th>
+                            <th>实际收盘</th>
+                            <th>收盘误差</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ml-result-body">
+                        <tr>
+                            <td colspan="7" style="color:#999;">尚未运行预测。</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div id="ml-oc-chart"></div>
+                <div id="ml-sim-kline-chart"></div>
+                <div id="ml-sim-summary">点击“运行预测”后生成 ML 买卖模拟统计。</div>
+                <table class="ml-table" style="margin-top:10px;">
+                    <thead>
+                        <tr>
+                            <th>买入日期</th>
+                            <th>卖出日期</th>
+                            <th>买入价</th>
+                            <th>卖出价</th>
+                            <th>收益</th>
+                            <th>收益率(%)</th>
+                            <th>信号胜率(%)</th>
+                            <th>成交数量</th>
+                            <th>手续费</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ml-trade-detail-body">
+                        <tr>
+                            <td colspan="9" style="color:#999;">点击“运行预测”后查看交易明细。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="ai-guide">
+            <h3>🤖 AI选股指南</h3>
+            <div class="toolbar">
+                <input id="ai-guide-query" class="query-input" type="text" placeholder="输入要问 AI 的问题..." value="{{ ai_guide_saved_query|default:''|escape }}">
+                <button id="ai-guide-btn" onclick="loadAiGuide()">获取 Google AI 概览</button>
+                <span class="status" id="ai-guide-status">
+                    查询问题：{% if ai_guide_saved_query %}{{ ai_guide_saved_query }}{% else %}{{ stock_name }} {{ stock_code }} 现在能入手吗？{% endif %}
+                    {% if ai_guide_saved_updated_at %}｜上次更新：{{ ai_guide_saved_updated_at }}{% endif %}
+                    {% if ai_guide_saved_count %}｜累计 {{ ai_guide_saved_count }} 条{% endif %}
+                </span>
+            </div>
+            <div class="prompt" id="ai-guide-prompt">当前 Prompt：{% if ai_guide_saved_prompt_json %}加载中...{% else %}（暂无）{% endif %}</div>
+            <div class="result" id="ai-guide-result">{% if ai_guide_saved_text %}加载中...{% else %}点击按钮后将返回 AI 选股参考内容。{% endif %}</div>
+            <div class="link" id="ai-guide-link">{% if ai_guide_saved_google_url %}Google 搜索：<a href="{{ ai_guide_saved_google_url }}" target="_blank" rel="noopener">打开结果</a>{% endif %}</div>
+        </div>
     </div>
 
     <script>
+    var __ymdPickerState = { panel: null, target: null, yearSel: null, monthSel: null, daySel: null };
+
+    function _daysInMonth(y, m) {
+        return new Date(y, m, 0).getDate();
+    }
+
+    function _formatDate(y, m, d) {
+        return String(y) + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    }
+
+    function _parseDate(v) {
+        var s = String(v || '').trim();
+        var m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+        return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+    }
+
+    function _buildYmdPicker() {
+        if (__ymdPickerState.panel) return;
+        var panel = document.createElement('div');
+        panel.className = 'ymd-picker';
+        panel.innerHTML = ''
+            + '<div class="row">'
+            + '  <select id="ymd-year"></select>'
+            + '  <select id="ymd-month"></select>'
+            + '  <select id="ymd-day"></select>'
+            + '  <button type="button" class="ok" id="ymd-ok">确定</button>'
+            + '</div>';
+        document.body.appendChild(panel);
+
+        var yearSel = panel.querySelector('#ymd-year');
+        var monthSel = panel.querySelector('#ymd-month');
+        var daySel = panel.querySelector('#ymd-day');
+        var okBtn = panel.querySelector('#ymd-ok');
+
+        var nowY = new Date().getFullYear();
+        for (var y = nowY - 25; y <= nowY + 5; y++) {
+            var op = document.createElement('option');
+            op.value = String(y);
+            op.textContent = y + '年';
+            yearSel.appendChild(op);
+        }
+        for (var mm = 1; mm <= 12; mm++) {
+            var opm = document.createElement('option');
+            opm.value = String(mm);
+            opm.textContent = mm + '月';
+            monthSel.appendChild(opm);
+        }
+
+        function refillDay() {
+            var yv = Number(yearSel.value || nowY);
+            var mv = Number(monthSel.value || 1);
+            var old = Number(daySel.value || 1);
+            var maxD = _daysInMonth(yv, mv);
+            daySel.innerHTML = '';
+            for (var dd = 1; dd <= maxD; dd++) {
+                var opd = document.createElement('option');
+                opd.value = String(dd);
+                opd.textContent = dd + '日';
+                daySel.appendChild(opd);
+            }
+            daySel.value = String(Math.min(old, maxD));
+            if (__ymdPickerState.target) {
+                __ymdPickerState.target.value = _formatDate(yv, mv, Number(daySel.value || 1));
+            }
+        }
+
+        yearSel.addEventListener('change', refillDay);
+        monthSel.addEventListener('change', refillDay);
+        daySel.addEventListener('change', function() {
+            var yv = Number(yearSel.value || nowY);
+            var mv = Number(monthSel.value || 1);
+            var dv = Number(daySel.value || 1);
+            if (__ymdPickerState.target) __ymdPickerState.target.value = _formatDate(yv, mv, dv);
+        });
+        okBtn.addEventListener('click', function() { panel.style.display = 'none'; });
+
+        document.addEventListener('click', function(e) {
+            if (panel.style.display === 'none') return;
+            if (panel.contains(e.target)) return;
+            if (__ymdPickerState.target && e.target === __ymdPickerState.target) return;
+            panel.style.display = 'none';
+        });
+
+        __ymdPickerState = { panel: panel, target: null, yearSel: yearSel, monthSel: monthSel, daySel: daySel };
+    }
+
+    function openYmdPicker(inputEl) {
+        _buildYmdPicker();
+        var panel = __ymdPickerState.panel;
+        var yearSel = __ymdPickerState.yearSel;
+        var monthSel = __ymdPickerState.monthSel;
+        var daySel = __ymdPickerState.daySel;
+        __ymdPickerState.target = inputEl;
+
+        var parsed = _parseDate(inputEl.value);
+        var now = new Date();
+        var y = parsed ? parsed.y : now.getFullYear();
+        var m = parsed ? parsed.m : (now.getMonth() + 1);
+        var d = parsed ? parsed.d : now.getDate();
+
+        yearSel.value = String(y);
+        if (yearSel.value !== String(y)) yearSel.value = yearSel.options[0].value;
+        monthSel.value = String(m);
+
+        var maxD = _daysInMonth(Number(yearSel.value), Number(monthSel.value));
+        daySel.innerHTML = '';
+        for (var dd = 1; dd <= maxD; dd++) {
+            var opd = document.createElement('option');
+            opd.value = String(dd);
+            opd.textContent = dd + '日';
+            daySel.appendChild(opd);
+        }
+        daySel.value = String(Math.min(d, maxD));
+        inputEl.value = _formatDate(Number(yearSel.value), Number(monthSel.value), Number(daySel.value));
+
+        var rect = inputEl.getBoundingClientRect();
+        panel.style.left = (rect.left + window.scrollX) + 'px';
+        panel.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        panel.style.display = 'block';
+    }
+
     // 页面加载时从URL参数恢复日期
     (function() {
         var params = new URLSearchParams(window.location.search);
         if (params.get('start_date')) document.getElementById('recalc-start').value = params.get('start_date');
         if (params.get('end_date')) document.getElementById('recalc-end').value = params.get('end_date');
     })();
+
+    var __detailNavCtx = null;
+    function parseStrategyDetailPath(urlText) {
+        try {
+            var u = new URL(urlText, window.location.origin);
+            var m = u.pathname.match(/^\/strategy\/([^/]+)\/([^/]+)\/$/);
+            if (!m) return null;
+            return { strategy_id: decodeURIComponent(m[1]), code: decodeURIComponent(m[2]) };
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function initDetailNavButtons() {
+        var prevBtn = document.getElementById('nav-prev-btn');
+        var nextBtn = document.getElementById('nav-next-btn');
+        var hintEl = document.getElementById('nav-pos-hint');
+        if (!prevBtn || !nextBtn || !hintEl) return;
+
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        hintEl.textContent = '';
+
+        var params = new URLSearchParams(window.location.search);
+        var navKey = params.get('nav_key') || '';
+        var navIdx = Number(params.get('nav_idx'));
+        if (!navKey || !Number.isFinite(navIdx)) return;
+
+        var raw = sessionStorage.getItem(navKey);
+        if (!raw) return;
+
+        var arr = [];
+        try {
+            arr = JSON.parse(raw);
+        } catch (e) {
+            return;
+        }
+        if (!Array.isArray(arr) || !arr.length) return;
+
+        var currentIdx = Math.max(0, Math.min(arr.length - 1, Math.round(navIdx)));
+        __detailNavCtx = { key: navKey, idx: currentIdx, items: arr };
+        hintEl.textContent = (currentIdx + 1) + ' / ' + arr.length;
+
+        prevBtn.disabled = currentIdx <= 0;
+        nextBtn.disabled = currentIdx >= arr.length - 1;
+    }
+
+    function gotoNavStock(targetIdx) {
+        if (!__detailNavCtx || !Array.isArray(__detailNavCtx.items)) return;
+        var items = __detailNavCtx.items;
+        if (targetIdx < 0 || targetIdx >= items.length) return;
+        var item = items[targetIdx] || {};
+        var code = item.code || '';
+        var sid = item.strategy_id || '{{ strategy_id }}';
+        if (!code || !sid) return;
+        var qs = '?nav_key=' + encodeURIComponent(__detailNavCtx.key) + '&nav_idx=' + targetIdx;
+        window.location.href = '/strategy/' + encodeURIComponent(sid) + '/' + encodeURIComponent(code) + '/' + qs;
+    }
+
+    function gotoPrevStock() {
+        if (!__detailNavCtx) return;
+        gotoNavStock(__detailNavCtx.idx - 1);
+    }
+
+    function gotoNextStock() {
+        if (!__detailNavCtx) return;
+        gotoNavStock(__detailNavCtx.idx + 1);
+    }
+
+    initDetailNavButtons();
 
     function updateStockData() {
         var btn = document.getElementById('update-data-btn');
@@ -227,6 +571,50 @@
             btn.textContent = '📥 更新数据';
             statusEl.textContent = '❌ 请求失败: ' + err;
             statusEl.style.color = '#e74c3c';
+        });
+    }
+
+    function toggleWatchlist() {
+        var btn = document.getElementById('watchlist-toggle-btn');
+        var statusEl = document.getElementById('update-status');
+        if (!btn) return;
+        var isActive = btn.textContent.indexOf('移除自选') >= 0;
+        btn.disabled = true;
+
+        fetch("{% url 'watchlist_api' %}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: isActive ? 'remove' : 'add',
+                code: '{{ stock_code }}',
+                strategy_id: '{{ strategy_id }}'
+            })
+        }).then(function(resp) {
+            return resp.json();
+        }).then(function(data) {
+            if (data.status === 'ok') {
+                if (isActive) {
+                    btn.textContent = '⭐ 加入自选';
+                    btn.style.background = '#4361ee';
+                    statusEl.textContent = '✅ 已从自选移除';
+                } else {
+                    btn.textContent = '➖ 移除自选';
+                    btn.style.background = '#e74c3c';
+                    statusEl.textContent = '✅ 已加入自选';
+                }
+                statusEl.style.display = 'inline';
+                statusEl.style.color = '#27ae60';
+            } else {
+                statusEl.textContent = '❌ 操作失败';
+                statusEl.style.display = 'inline';
+                statusEl.style.color = '#e74c3c';
+            }
+        }).catch(function(err) {
+            statusEl.textContent = '❌ 请求失败: ' + err;
+            statusEl.style.display = 'inline';
+            statusEl.style.color = '#e74c3c';
+        }).finally(function() {
+            btn.disabled = false;
         });
     }
 
@@ -299,11 +687,444 @@
             });
     }
 
+    var mlSimChart = null;
+    var mlSharedDates = [];
+    var mlChartSyncGroup = 'ml-sync-group';
+    var mlZoomStart = 0;
+    var mlZoomEnd = 100;
+    var mlLatestPrediction = null;
+
+    function getMlPredictionLabel() {
+        if (!mlLatestPrediction) return '';
+        return String(mlLatestPrediction.label || '下一交易日(预测)');
+    }
+
+    function getMlDisplayDates() {
+        var out = Array.isArray(mlSharedDates) ? mlSharedDates.slice() : [];
+        var predLabel = getMlPredictionLabel();
+        if (predLabel && out.indexOf(predLabel) < 0) {
+            out.push(predLabel);
+        }
+        return out;
+    }
+
+    function syncMlCharts() {
+        if (!mlOcChart || !mlSimChart) return;
+        mlOcChart.group = mlChartSyncGroup;
+        mlSimChart.group = mlChartSyncGroup;
+        echarts.connect(mlChartSyncGroup);
+    }
+
+    function getMlCurrentZoom() {
+        if (mlSimChart) {
+            var opt = mlSimChart.getOption && mlSimChart.getOption();
+            var dz = opt && Array.isArray(opt.dataZoom) ? opt.dataZoom : [];
+            if (dz.length > 0) {
+                var start = Number(dz[0].start);
+                var end = Number(dz[0].end);
+                if (Number.isFinite(start) && Number.isFinite(end)) {
+                    return { start: start, end: end };
+                }
+            }
+        }
+        return { start: mlZoomStart, end: mlZoomEnd };
+    }
+
+    function applyMlZoomToCharts(start, end) {
+        if (Number.isFinite(Number(start))) mlZoomStart = Number(start);
+        if (Number.isFinite(Number(end))) mlZoomEnd = Number(end);
+
+        [mlOcChart, mlSimChart].forEach(function(chart) {
+            if (!chart) return;
+            chart.dispatchAction({ type: 'dataZoom', start: mlZoomStart, end: mlZoomEnd });
+        });
+    }
+
     function switchTab(name, btn) {
         document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById('panel-' + name).classList.add('active');
         btn.classList.add('active');
+        if (name === 'ml') {
+            setTimeout(function() {
+                if (mlOcChart) mlOcChart.resize();
+                if (mlSimChart) mlSimChart.resize();
+            }, 0);
+        }
+    }
+
+    function fmtNum(val, digits) {
+        if (val === null || val === undefined || val === '' || Number.isNaN(Number(val))) return '—';
+        return Number(val).toFixed(digits || 2);
+    }
+
+    function clsErr(val) {
+        if (val === null || val === undefined || Number.isNaN(Number(val))) return '';
+        return Number(val) >= 0 ? 'ml-pos' : 'ml-neg';
+    }
+
+    function renderMlRows(payload) {
+        var body = document.getElementById('ml-result-body');
+        if (!body) return;
+        var verify = payload.verify || {};
+        var nextPred = payload.next_prediction || {};
+        mlLatestPrediction = {
+            label: '下一交易日(预测)',
+            pred_open: nextPred.pred_open,
+            pred_close: nextPred.pred_close,
+            latest_date: nextPred.latest_date || ''
+        };
+        var verifyDate = verify.date || '最近交易日';
+        var latestDate = nextPred.latest_date || '最新交易日';
+
+        body.innerHTML = ''
+            + '<tr>'
+            + '<td>最近可验证（' + verifyDate + '）</td>'
+            + '<td>' + fmtNum(verify.pred_open, 3) + '</td>'
+            + '<td>' + fmtNum(verify.actual_open, 3) + '</td>'
+            + '<td class="' + clsErr(verify.error_open) + '">' + fmtNum(verify.error_open, 4) + '</td>'
+            + '<td>' + fmtNum(verify.pred_close, 3) + '</td>'
+            + '<td>' + fmtNum(verify.actual_close, 3) + '</td>'
+            + '<td class="' + clsErr(verify.error_close) + '">' + fmtNum(verify.error_close, 4) + '</td>'
+            + '</tr>'
+            + '<tr>'
+            + '<td>下一交易日预测（基于 ' + latestDate + '）</td>'
+            + '<td>' + fmtNum(nextPred.pred_open, 3) + '</td>'
+            + '<td>—</td>'
+            + '<td>—</td>'
+            + '<td>' + fmtNum(nextPred.pred_close, 3) + '</td>'
+            + '<td>—</td>'
+            + '<td>—</td>'
+            + '</tr>';
+
+        renderMlChart(payload.comparison_series || null);
+    }
+
+    var mlOcChart = null;
+    function renderMlChart(seriesData) {
+        var chartEl = document.getElementById('ml-oc-chart');
+        if (!chartEl) return;
+
+        var hasData = seriesData && Array.isArray(seriesData.dates) && seriesData.dates.length > 0;
+        if (!hasData) {
+            chartEl.innerHTML = '<div style="padding:14px;color:#999;font-size:.86em;">暂无可绘制的预测对比数据。</div>';
+            return;
+        }
+
+        if (!mlOcChart) {
+            mlOcChart = echarts.init(chartEl);
+        }
+
+        function toCandle(openArr, closeArr) {
+            var n = Math.max((openArr || []).length, (closeArr || []).length);
+            var out = [];
+            for (var i = 0; i < n; i++) {
+                var op = (openArr || [])[i];
+                var cl = (closeArr || [])[i];
+                if (op === null || op === undefined || cl === null || cl === undefined || Number.isNaN(Number(op)) || Number.isNaN(Number(cl))) {
+                    out.push([null, null, null, null]);
+                    continue;
+                }
+                var o = Number(op);
+                var c = Number(cl);
+                var lo = Math.min(o, c);
+                var hi = Math.max(o, c);
+                out.push([o, c, lo, hi]);
+            }
+            return out;
+        }
+
+        var xDates = getMlDisplayDates();
+        if (!xDates.length) {
+            xDates = Array.isArray(seriesData.dates) ? seriesData.dates.slice() : [];
+        }
+
+        function toAlignedCandle(srcDates, openArr, closeArr, targetDates) {
+            if (!Array.isArray(targetDates) || targetDates.length === 0) {
+                return toCandle(openArr, closeArr);
+            }
+            var map = new Map();
+            for (var i = 0; i < (srcDates || []).length; i++) {
+                var d = srcDates[i];
+                var op = (openArr || [])[i];
+                var cl = (closeArr || [])[i];
+                if (!d) continue;
+                map.set(String(d), [op, cl]);
+            }
+            var out = [];
+            for (var j = 0; j < targetDates.length; j++) {
+                var key = String(targetDates[j]);
+                var pair = map.get(key);
+                if (!pair) {
+                    out.push([null, null, null, null]);
+                    continue;
+                }
+                var opv = pair[0];
+                var clv = pair[1];
+                if (opv === null || opv === undefined || clv === null || clv === undefined || Number.isNaN(Number(opv)) || Number.isNaN(Number(clv))) {
+                    out.push([null, null, null, null]);
+                    continue;
+                }
+                var o = Number(opv);
+                var c = Number(clv);
+                out.push([o, c, Math.min(o, c), Math.max(o, c)]);
+            }
+            return out;
+        }
+
+        var actualCandle = toAlignedCandle(seriesData.dates || [], seriesData.actual_open || [], seriesData.actual_close || [], xDates);
+        var predCandle = toAlignedCandle(seriesData.dates || [], seriesData.pred_open || [], seriesData.pred_close || [], xDates);
+
+        var currentZoom = getMlCurrentZoom();
+        var option = {
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'cross' }
+            },
+            legend: {
+                data: ['实际K线(开收)', '预测K线(开收)'],
+                top: 8,
+            },
+            grid: { left: 50, right: 24, top: 42, bottom: 42 },
+            xAxis: {
+                type: 'category',
+                data: xDates,
+                boundaryGap: true,
+                axisLabel: { fontSize: 10 }
+            },
+            yAxis: {
+                type: 'value',
+                scale: true,
+                splitLine: { lineStyle: { color: '#eef1f6' } }
+            },
+            dataZoom: [
+                { type: 'inside', start: currentZoom.start, end: currentZoom.end },
+                { type: 'slider', start: currentZoom.start, end: currentZoom.end, top: '90%' }
+            ],
+            series: [
+                {
+                    name: '实际K线(开收)',
+                    type: 'candlestick',
+                    data: actualCandle,
+                    barWidth: '42%',
+                    itemStyle: {
+                        color: '#e74c3c',
+                        color0: '#27ae60',
+                        borderColor: '#e74c3c',
+                        borderColor0: '#27ae60'
+                    }
+                },
+                {
+                    name: '预测K线(开收)',
+                    type: 'candlestick',
+                    data: predCandle,
+                    barWidth: '26%',
+                    itemStyle: {
+                        color: '#f6b9b0',
+                        color0: '#b8ead3',
+                        borderColor: '#f0a79d',
+                        borderColor0: '#a7dfc6'
+                    },
+                    z: 3
+                }
+            ]
+        };
+
+        mlOcChart.setOption(option, true);
+        syncMlCharts();
+        applyMlZoomToCharts(currentZoom.start, currentZoom.end);
+    }
+
+    function loadMlPrediction() {
+        var btn = document.getElementById('ml-predict-btn');
+        var statusEl = document.getElementById('ml-status');
+        var daysEl = document.getElementById('ml-train-days');
+        function isChecked(id) {
+            var el = document.getElementById(id);
+            return !!(el && el.checked);
+        }
+        var featureConfig = {
+            use_ma5: isChecked('ml-f-ma5'),
+            use_ma10: isChecked('ml-f-ma10'),
+            use_ma20: isChecked('ml-f-ma20'),
+            use_ma30: isChecked('ml-f-ma30'),
+            use_ma60: isChecked('ml-f-ma60'),
+            use_vol_chg1: isChecked('ml-f-volchg1'),
+            use_vol_chg5: isChecked('ml-f-volchg5'),
+            use_atr14: isChecked('ml-f-atr14'),
+        };
+        var trainDays = Number(daysEl && daysEl.value ? daysEl.value : 50);
+        if (!Number.isFinite(trainDays)) trainDays = 50;
+        trainDays = Math.max(20, Math.min(300, Math.round(trainDays)));
+        if (daysEl) daysEl.value = String(trainDays);
+
+        btn.disabled = true;
+        btn.textContent = '预测中...';
+        statusEl.textContent = '正在训练并预测，请稍候...';
+
+        fetch("{% url 'ml_daily_prediction' %}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                code: '{{ stock_code }}',
+                train_days: trainDays,
+                feature_config: featureConfig
+            })
+        }).then(function(resp) {
+            return resp.json();
+        }).then(function(data) {
+            if (data.status === 'ok') {
+                renderMlRows(data);
+                var featureCount = Array.isArray(data.feature_cols) ? data.feature_cols.length : 0;
+                var rangeText = (data.range_start && data.range_end) ? (data.range_start + ' ~ ' + data.range_end + '（' + (data.range_rows || 0) + '条）') : '全部';
+                statusEl.textContent = '✅ 训练样本：' + (data.train_samples || trainDays) + ' 天；特征数：' + featureCount + '；数据范围：' + rangeText + '；最近可验证 + 下一交易日预测已更新';
+                statusEl.style.color = '#27ae60';
+                if (typeof window.loadMlTradeSimulation === 'function') {
+                    window.loadMlTradeSimulation({silent: true});
+                }
+            } else {
+                statusEl.textContent = '❌ ' + (data.message || '预测失败');
+                statusEl.style.color = '#e74c3c';
+            }
+        }).catch(function(err) {
+            statusEl.textContent = '❌ 请求失败：' + err;
+            statusEl.style.color = '#e74c3c';
+        }).finally(function() {
+            btn.disabled = false;
+            btn.textContent = '运行预测';
+        });
+    }
+
+    window.addEventListener('resize', function() {
+        if (mlOcChart) mlOcChart.resize();
+    });
+
+    function renderSimpleMarkdown(md) {
+        if (!md) return '';
+        let s = String(md);
+
+        const codeBlocks = [];
+        s = s.replace(/```([\s\S]*?)```/g, function(_, code) {
+            const idx = codeBlocks.length;
+            codeBlocks.push(String(code || '').trim());
+            return `@@CODE_BLOCK_${idx}@@`;
+        });
+
+        s = s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        s = s.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+        s = s.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+        s = s.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+
+        s = s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        s = s.replace(/(^|\s)\*(.*?)\*(?=\s|$)/g, '$1<em>$2</em>');
+        s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+        s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+        s = s.replace(/(^|\n)-\s+(.+)(?=\n|$)/g, '$1<li>$2</li>');
+        s = s.replace(/(<li>.*?<\/li>\n?)+/gs, function(block) {
+            return '<ul>' + block + '</ul>';
+        });
+
+        s = s.replace(/(^|\n)\d+\.\s+(.+)(?=\n|$)/g, '$1<oli>$2</oli>');
+        s = s.replace(/(<oli>.*?<\/oli>\n?)+/gs, function(block) {
+            return '<ol>' + block.replace(/<oli>/g, '<li>').replace(/<\/oli>/g, '</li>') + '</ol>';
+        });
+
+        const chunks = s.split(/\n{2,}/).map(function(part) { return part.trim(); }).filter(Boolean);
+        s = chunks.map(function(part) {
+            if (/^<h[1-3]>|^<ul>|^<ol>|^<pre>/.test(part)) return part;
+            return '<p>' + part.replace(/\n/g, '<br>') + '</p>';
+        }).join('');
+
+        s = s.replace(/@@CODE_BLOCK_(\d+)@@/g, function(_, i) {
+            const code = codeBlocks[Number(i)] || '';
+            const escaped = code
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            return '<pre><code>' + escaped + '</code></pre>';
+        });
+        return s;
+    }
+
+    (function initSavedAiGuide() {
+        const savedText = {{ ai_guide_saved_text_json|safe }};
+        const savedPrompt = {{ ai_guide_saved_prompt_json|safe }};
+        const savedQuery = '{{ ai_guide_saved_query|default:""|escapejs }}';
+        const savedUpdatedAt = '{{ ai_guide_saved_updated_at|default:""|escapejs }}';
+        const statusEl = document.getElementById('ai-guide-status');
+        const resultEl = document.getElementById('ai-guide-result');
+        const promptEl = document.getElementById('ai-guide-prompt');
+        const queryEl = document.getElementById('ai-guide-query');
+        const defaultQuery = '{{ stock_name|escapejs }} {{ stock_code|escapejs }} 现在能入手吗？';
+        if (savedText) {
+            resultEl.innerHTML = renderSimpleMarkdown(savedText);
+        }
+        if (queryEl && !queryEl.value.trim()) {
+            queryEl.value = savedQuery || defaultQuery;
+        }
+        if (promptEl) {
+            promptEl.textContent = '当前 Prompt：' + (savedPrompt || '（暂无）');
+        }
+        if (savedUpdatedAt && statusEl && statusEl.textContent.indexOf('上次更新：') === -1) {
+            statusEl.textContent = statusEl.textContent + '｜上次更新：' + savedUpdatedAt;
+        }
+    })();
+
+    function loadAiGuide() {
+        const btn = document.getElementById('ai-guide-btn');
+        const statusEl = document.getElementById('ai-guide-status');
+        const resultEl = document.getElementById('ai-guide-result');
+        const promptEl = document.getElementById('ai-guide-prompt');
+        const linkEl = document.getElementById('ai-guide-link');
+        const queryEl = document.getElementById('ai-guide-query');
+        const queryText = (queryEl && queryEl.value ? queryEl.value : '').trim();
+        btn.disabled = true;
+        btn.textContent = '获取中...';
+        statusEl.textContent = '正在查询 Google...';
+
+        fetch("{% url 'ai_stock_guide' %}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                code: '{{ stock_code }}',
+                name: '{{ stock_name }}',
+                query: queryText,
+                current_price: window.__aiCurrentPrice || null,
+                chip_distribution: window.__aiChipDistribution || []
+            })
+        }).then(function(resp) {
+            return resp.json();
+        }).then(function(data) {
+            const now = new Date();
+            const fmt = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0')
+                + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
+            statusEl.textContent = (data.query ? ('查询问题：' + data.query + '｜') : '') + (data.message || '完成') + '｜上次更新：' + fmt;
+            if (promptEl) {
+                promptEl.textContent = '当前 Prompt：' + (data.prompt || '（暂无）');
+            }
+            if (data.guide_text) {
+                resultEl.innerHTML = renderSimpleMarkdown(data.guide_text);
+            } else {
+                resultEl.textContent = '未获取到可用 AI 概览内容。';
+            }
+            if (data.google_url) {
+                linkEl.innerHTML = 'Google 搜索：<a href="' + data.google_url + '" target="_blank" rel="noopener">打开结果</a>';
+            } else {
+                linkEl.innerHTML = '';
+            }
+        }).catch(function(err) {
+            statusEl.textContent = '请求失败';
+            resultEl.textContent = '获取失败：' + err;
+            linkEl.innerHTML = '';
+        }).finally(function() {
+            btn.disabled = false;
+            btn.textContent = '获取 Google AI 概览';
+        });
     }
 
     // 设为默认策略：调用API保存
@@ -333,6 +1154,7 @@
     // ── ECharts K线图 ──
     const rawKline = {{ kline_data|safe }};
     const rawTrades = {{ trade_data|safe }};
+    let mlSimResult = {{ ml_sim_result|safe }};
 
     // 适配 orders.json 结构
     function orderToTradePoint(order) {
@@ -360,9 +1182,24 @@
 
     if (rawKline.length > 0) {
         const dates = rawKline.map(r => r.date);
+        mlSharedDates = dates.slice();
         const ohlc = rawKline.map(r => [r.open, r.close, r.low, r.high]);
         const volumes = rawKline.map(r => r.volume);
         const turnovers = rawKline.map(r => r.turnover);
+        const defaultWindowDays = 50;
+        mlZoomStart = dates.length > defaultWindowDays
+            ? Math.max(0, ((dates.length - defaultWindowDays) / dates.length) * 100)
+            : 0;
+        mlZoomEnd = 100;
+
+        const mlSimStartEl = document.getElementById('ml-sim-start');
+        const mlSimEndEl = document.getElementById('ml-sim-end');
+        const mlThresholdEl = document.getElementById('ml-threshold-pct');
+        if (mlSimStartEl && !mlSimStartEl.value) mlSimStartEl.value = (dates[0] || '');
+        if (mlSimEndEl && !mlSimEndEl.value) mlSimEndEl.value = (dates[dates.length - 1] || '');
+        if (mlThresholdEl && (mlSimResult && typeof mlSimResult.threshold_pct === 'number')) {
+            mlThresholdEl.value = String(mlSimResult.threshold_pct);
+        }
 
         // 买卖点标记（orders JSON 格式：side, created_at, avg_price）
         const buyPoints = [];
@@ -467,10 +1304,30 @@
                     continue;
                 }
 
-                const histLowArr = lows.slice(0, i).filter(v => Number.isFinite(v));
-                const histHighArr = highs.slice(0, i).filter(v => Number.isFinite(v));
-                const minP = histLowArr.length ? Math.min.apply(null, histLowArr) : Math.min.apply(null, windowPrices);
-                const maxP = histHighArr.length ? Math.max.apply(null, histHighArr) : Math.max.apply(null, windowPrices);
+                let weightedMean = 0;
+                for (let k = 0; k < windowPrices.length; k++) {
+                    weightedMean += windowPrices[k] * windowVols[k];
+                }
+                weightedMean = volSum > 0 ? (weightedMean / volSum) : windowPrices[windowPrices.length - 1];
+
+                let weightedVar = 0;
+                for (let k = 0; k < windowPrices.length; k++) {
+                    const diff = windowPrices[k] - weightedMean;
+                    weightedVar += diff * diff * windowVols[k];
+                }
+                weightedVar = volSum > 0 ? (weightedVar / volSum) : 0;
+                const weightedStd = Math.sqrt(Math.max(0, weightedVar));
+
+                const wpMin = Math.min.apply(null, windowPrices);
+                const wpMax = Math.max.apply(null, windowPrices);
+                let minP = weightedMean - 2 * weightedStd;
+                let maxP = weightedMean + 2 * weightedStd;
+                if (!Number.isFinite(minP) || !Number.isFinite(maxP) || maxP <= minP) {
+                    minP = wpMin;
+                    maxP = wpMax;
+                }
+                if (wpMin < minP) minP = wpMin;
+                if (wpMax > maxP) maxP = wpMax;
                 const range = maxP - minP;
                 if (!Number.isFinite(range) || range <= 0) {
                     profiles.push({
@@ -482,7 +1339,7 @@
                     continue;
                 }
 
-                const binCount = 12;
+                const binCount = 24;
                 const binWidth = range / binCount;
                 if (binWidth <= 0) {
                     profiles.push({
@@ -506,33 +1363,22 @@
 
                 const peakVol = Math.max.apply(null, bins);
                 const peakIdx = bins.indexOf(peakVol);
-                const score = peakVol / volSum * 100;
-
-                const target = volSum * 0.7;
-                let total70 = bins[peakIdx] || 0;
-                let left = peakIdx;
-                let right = peakIdx;
-                while (total70 < target && (left > 0 || right < binCount - 1)) {
-                    const leftCandidate = left > 0 ? bins[left - 1] : -1;
-                    const rightCandidate = right < binCount - 1 ? bins[right + 1] : -1;
-                    if (rightCandidate >= leftCandidate) {
-                        if (right < binCount - 1) {
-                            right += 1;
-                            total70 += bins[right];
-                        } else if (left > 0) {
-                            left -= 1;
-                            total70 += bins[left];
-                        }
-                    } else {
-                        if (left > 0) {
-                            left -= 1;
-                            total70 += bins[left];
-                        } else if (right < binCount - 1) {
-                            right += 1;
-                            total70 += bins[right];
-                        }
+                const spanBins = Math.max(1, Math.min(binCount, Math.round(binCount * 0.75)));
+                let left = 0;
+                let right = spanBins - 1;
+                let bestVol = -1;
+                for (let s = 0; s <= binCount - spanBins; s++) {
+                    let sumVol = 0;
+                    for (let t = s; t < s + spanBins; t++) {
+                        sumVol += bins[t] || 0;
+                    }
+                    if (sumVol > bestVol) {
+                        bestVol = sumVol;
+                        left = s;
+                        right = s + spanBins - 1;
                     }
                 }
+                const score = volSum > 0 ? (bestVol / volSum * 100) : 0;
 
                 const peakPrice = minP + (peakIdx + 0.5) * binWidth;
                 const low70 = minP + left * binWidth;
@@ -575,7 +1421,10 @@
         const chipBarsEl = document.getElementById('chip-bars');
         const chipHistEl = document.getElementById('chip-hist');
         const chipHistRangeEl = document.getElementById('chip-hist-range');
+        const chipHistMarkerEl = document.getElementById('chip-hist-marker');
         const chipTipEl = document.getElementById('chip-tip');
+        window.__aiCurrentPrice = null;
+        window.__aiChipDistribution = [];
         const maColors = { 'MA5': '#f39c12', 'MA10': '#e74c8b', 'MA30': '#3498db', 'MA60': '#9b59b6' };
 
         function bindChipHistHover() {
@@ -601,18 +1450,31 @@
             const cp = chipProfiles[idx];
             const dateText = dates[idx] || '—';
             if (!cp) {
+                const closeFallback = Number(closePrices[idx]);
+                window.__aiCurrentPrice = Number.isFinite(closeFallback) ? +closeFallback.toFixed(2) : null;
+                window.__aiChipDistribution = [];
                 chipMetaEl.innerHTML = '日期：' + dateText + '<br/>筹码数据不足';
                 chipBarsEl.innerHTML = '';
                 if (chipHistEl) chipHistEl.innerHTML = '';
                 if (chipHistRangeEl) chipHistRangeEl.innerHTML = '';
+                if (chipHistMarkerEl) chipHistMarkerEl.style.display = 'none';
                 return;
             }
+            const closeNow = Number(closePrices[idx]);
+            window.__aiCurrentPrice = Number.isFinite(closeNow) ? +closeNow.toFixed(2) : null;
+            window.__aiChipDistribution = (cp.dist || []).map(function(bin) {
+                return {
+                    low: Number(bin.low),
+                    high: Number(bin.high),
+                    ratio: Number(bin.ratio),
+                };
+            });
             chipMetaEl.innerHTML =
                 '日期：' + dateText +
-                '<br/>集中度：' + cp.score + '%' +
+                '<br/>75%价格区间覆盖率：' + cp.score + '%' +
                 '<br/>主峰价：' + cp.peakPrice +
-                '<br/>70%区间：[' + cp.low70 + ', ' + cp.high70 + ']' +
-                '<br/>历史区间：[' + cp.minP + ', ' + cp.maxP + ']';
+                '<br/>75%价格区间：[' + cp.low70 + ', ' + cp.high70 + ']' +
+                '<br/>自适应区间(μ±2σ)：[' + cp.minP + ', ' + cp.maxP + ']';
 
             const topBins = (cp.dist || []).slice().sort(function(a, b) { return b.ratio - a.ratio; }).slice(0, 8);
             if (!topBins.length) {
@@ -641,21 +1503,91 @@
             if (chipHistRangeEl) {
                 chipHistRangeEl.innerHTML = '<span>' + cp.minP + '</span><span>' + cp.maxP + '</span>';
             }
+
+            if (chipHistMarkerEl) {
+                const close = Number(closePrices[idx]);
+                const minP = Number(cp.minP);
+                const maxP = Number(cp.maxP);
+                const range = maxP - minP;
+                if (Number.isFinite(close) && Number.isFinite(minP) && Number.isFinite(maxP) && range > 0) {
+                    const ratio = Math.max(0, Math.min(1, (close - minP) / range));
+                    chipHistMarkerEl.style.left = (ratio * 100).toFixed(2) + '%';
+                    chipHistMarkerEl.style.display = 'block';
+                    chipHistMarkerEl.title = '当日收盘价: ' + close.toFixed(2);
+                } else {
+                    chipHistMarkerEl.style.display = 'none';
+                }
+            }
         }
 
-        // 构建买卖点 scatter 数据（与 dates 等长的数组，无数据处填 null）
-        const buyScatter = new Array(dates.length).fill(null);
-        const sellScatter = new Array(dates.length).fill(null);
+        // 构建买卖点标注数据：价格圆圈 + 向下引线 + 底部买卖标志
+        const priceMin = Math.min.apply(null, lowPrices.filter(v => Number.isFinite(v)));
+        const priceMax = Math.max.apply(null, highPrices.filter(v => Number.isFinite(v)));
+        const priceRange = Number.isFinite(priceMax - priceMin) ? (priceMax - priceMin) : 0;
+        const markerSpan = priceRange > 0 ? priceRange * 0.08 : 1.0;
+        const buyMarkers = [];
+        const sellMarkers = [];
         tradePoints.forEach(t => {
             if (t.type === 'buy' && t.time && t.price) {
                 const idx = findClosestIdx(isoToDate(t.time));
-                if (idx >= 0) buyScatter[idx] = t.price;
+                if (idx >= 0) {
+                    const p = Number(t.price);
+                    if (Number.isFinite(p)) buyMarkers.push([idx, p, p - markerSpan, '买', '#e74c3c']);
+                }
             }
             if (t.type === 'sell' && t.time && t.price) {
                 const idx = findClosestIdx(isoToDate(t.time));
-                if (idx >= 0) sellScatter[idx] = t.price;
+                if (idx >= 0) {
+                    const p = Number(t.price);
+                    if (Number.isFinite(p)) sellMarkers.push([idx, p, p - markerSpan, '卖', '#27ae60']);
+                }
             }
         });
+
+        function markerRenderItem(params, api) {
+            const xIdx = api.value(0);
+            const yPrice = api.value(1);
+            const yEnd = api.value(2);
+            const txt = api.value(3);
+            const color = api.value(4);
+
+            const pTop = api.coord([xIdx, yPrice]);
+            const pEnd = api.coord([xIdx, yEnd]);
+            if (!pTop || !pEnd) return null;
+
+            return {
+                type: 'group',
+                children: [
+                    {
+                        type: 'line',
+                        shape: { x1: pTop[0], y1: pTop[1], x2: pEnd[0], y2: pEnd[1] },
+                        style: { stroke: color, lineWidth: 1.2, opacity: 0.9 }
+                    },
+                    {
+                        type: 'circle',
+                        shape: { cx: pTop[0], cy: pTop[1], r: 4.5 },
+                        style: { fill: '#ffffff', stroke: color, lineWidth: 2 }
+                    },
+                    {
+                        type: 'circle',
+                        shape: { cx: pEnd[0], cy: pEnd[1], r: 8 },
+                        style: { fill: color, stroke: '#ffffff', lineWidth: 1 }
+                    },
+                    {
+                        type: 'text',
+                        style: {
+                            x: pEnd[0],
+                            y: pEnd[1],
+                            text: txt,
+                            textAlign: 'center',
+                            textVerticalAlign: 'middle',
+                            fill: '#fff',
+                            font: 'bold 11px sans-serif'
+                        }
+                    }
+                ]
+            };
+        }
 
         const chart = echarts.init(document.getElementById('kline-chart'));
         const option = {
@@ -683,8 +1615,8 @@
                 { scale: true, gridIndex: 2, splitLine: { show: false }, axisLabel: { formatter: '{value}%' } },
             ],
             dataZoom: [
-                { type: 'inside', xAxisIndex: [0, 1, 2], start: 0, end: 100 },
-                { type: 'slider', xAxisIndex: [0, 1, 2], start: 0, end: 100, top: '94%' },
+                { type: 'inside', xAxisIndex: [0, 1, 2], start: mlZoomStart, end: mlZoomEnd },
+                { type: 'slider', xAxisIndex: [0, 1, 2], start: mlZoomStart, end: mlZoomEnd, top: '94%' },
             ],
             series: [
                 {
@@ -727,25 +1659,23 @@
                 },
                 {
                     name: '买入',
-                    type: 'scatter',
-                    data: buyScatter,
+                    type: 'custom',
+                    data: buyMarkers,
+                    renderItem: markerRenderItem,
                     xAxisIndex: 0,
                     yAxisIndex: 0,
-                    symbol: 'triangle',
-                    symbolSize: 14,
-                    itemStyle: { color: '#e74c3c' },
-                    z: 10,
+                    z: 12,
+                    silent: false,
                 },
                 {
                     name: '卖出',
-                    type: 'scatter',
-                    data: sellScatter,
+                    type: 'custom',
+                    data: sellMarkers,
+                    renderItem: markerRenderItem,
                     xAxisIndex: 0,
                     yAxisIndex: 0,
-                    symbol: 'pin',
-                    symbolSize: 14,
-                    itemStyle: { color: '#27ae60' },
-                    z: 10,
+                    z: 12,
+                    silent: false,
                 },
                 {
                     name: '成交量',
@@ -784,6 +1714,284 @@
             ],
         };
         chart.setOption(option);
+
+        function renderMlSimKline() {
+            const mlChartEl = document.getElementById('ml-sim-kline-chart');
+            if (!mlChartEl) return;
+            if (!mlSimResult || !Array.isArray(mlSimResult.buy_indices) || !Array.isArray(mlSimResult.sell_indices)) {
+                mlChartEl.innerHTML = '<div style="padding:14px;color:#999;font-size:.86em;">点击“运行预测”后生成 ML 买卖模拟 K 线。</div>';
+                return;
+            }
+            const hasForecast = !!(mlLatestPrediction
+                && Number.isFinite(Number(mlLatestPrediction.pred_open))
+                && Number.isFinite(Number(mlLatestPrediction.pred_close)));
+            if (!mlSimResult.buy_indices.length && !mlSimResult.sell_indices.length && !hasForecast) {
+                mlChartEl.innerHTML = '<div style="padding:14px;color:#999;font-size:.86em;">当前参数下暂无可绘制的 ML 买卖点。</div>';
+                return;
+            }
+
+            const mlBuyData = [];
+            const mlSellData = [];
+            const displayDates = getMlDisplayDates();
+            const simOhlc = ohlc.slice();
+            if (displayDates.length > dates.length) {
+                simOhlc.push([null, null, null, null]);
+            }
+            const forecastCandleData = new Array(displayDates.length).fill(null).map(function() {
+                return [null, null, null, null];
+            });
+            if (mlLatestPrediction && Number.isFinite(Number(mlLatestPrediction.pred_open)) && Number.isFinite(Number(mlLatestPrediction.pred_close))) {
+                const predOpen = Number(mlLatestPrediction.pred_open);
+                const predClose = Number(mlLatestPrediction.pred_close);
+                const predIdx = displayDates.length - 1;
+                forecastCandleData[predIdx] = [
+                    predOpen,
+                    predClose,
+                    Math.min(predOpen, predClose),
+                    Math.max(predOpen, predClose)
+                ];
+            }
+
+            function pushMarkerByDateOrIdx(dateArr, idxArr, outArr, text, color) {
+                if (Array.isArray(dateArr) && dateArr.length > 0) {
+                    dateArr.forEach(function(d) {
+                        const idx = findClosestIdx(String(d || ''));
+                        if (idx >= 0 && idx < closePrices.length) {
+                            const p = Number(closePrices[idx]);
+                            if (Number.isFinite(p)) outArr.push([idx, p, p - markerSpan, text, color]);
+                        }
+                    });
+                    return;
+                }
+                (idxArr || []).forEach(function(idx) {
+                    if (idx >= 0 && idx < closePrices.length) {
+                        const p = Number(closePrices[idx]);
+                        if (Number.isFinite(p)) outArr.push([idx, p, p - markerSpan, text, color]);
+                    }
+                });
+            }
+
+            pushMarkerByDateOrIdx(mlSimResult.buy_dates, mlSimResult.buy_indices, mlBuyData, '买', '#e74c3c');
+            pushMarkerByDateOrIdx(mlSimResult.sell_dates, mlSimResult.sell_indices, mlSellData, '卖', '#27ae60');
+
+            if (!mlSimChart) {
+                mlSimChart = echarts.init(mlChartEl);
+            }
+            mlSimChart.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                legend: { data: ['ML模拟K线', '下一交易日预测', '买入', '卖出'], top: 8 },
+                grid: { left: 56, right: 20, top: 44, bottom: 40 },
+                xAxis: {
+                    type: 'category',
+                    data: displayDates,
+                    boundaryGap: true,
+                    axisLabel: { fontSize: 10 }
+                },
+                yAxis: {
+                    type: 'value',
+                    scale: true,
+                    splitLine: { lineStyle: { color: '#eef1f6' } }
+                },
+                dataZoom: [
+                    { type: 'inside', start: mlZoomStart, end: mlZoomEnd },
+                    { type: 'slider', start: mlZoomStart, end: mlZoomEnd, top: '92%' }
+                ],
+                series: [
+                    {
+                        name: 'ML模拟K线',
+                        type: 'candlestick',
+                        data: simOhlc,
+                        itemStyle: {
+                            color: '#e74c3c',
+                            color0: '#27ae60',
+                            borderColor: '#e74c3c',
+                            borderColor0: '#27ae60'
+                        }
+                    },
+                    {
+                        name: '下一交易日预测',
+                        type: 'candlestick',
+                        data: forecastCandleData,
+                        itemStyle: {
+                            color: '#f6b9b0',
+                            color0: '#b8ead3',
+                            borderColor: '#f0a79d',
+                            borderColor0: '#a7dfc6'
+                        },
+                        z: 3
+                    },
+                    {
+                        name: '买入',
+                        type: 'custom',
+                        data: mlBuyData,
+                        renderItem: markerRenderItem,
+                        xAxisIndex: 0,
+                        yAxisIndex: 0,
+                        z: 12,
+                        silent: false,
+                    },
+                    {
+                        name: '卖出',
+                        type: 'custom',
+                        data: mlSellData,
+                        renderItem: markerRenderItem,
+                        xAxisIndex: 0,
+                        yAxisIndex: 0,
+                        z: 12,
+                        silent: false,
+                    }
+                ]
+            }, true);
+            syncMlCharts();
+            applyMlZoomToCharts(mlZoomStart, mlZoomEnd);
+            setTimeout(function() {
+                if (mlSimChart) mlSimChart.resize();
+            }, 0);
+        }
+
+        function renderMlSimSummary() {
+            const summaryEl = document.getElementById('ml-sim-summary');
+            if (!summaryEl) return;
+            if (!mlSimResult || typeof mlSimResult.total_return !== 'number') {
+                summaryEl.textContent = '点击“运行预测”后生成 ML 买卖模拟统计。';
+                return;
+            }
+            function fmt(v, digits) {
+                if (v === null || v === undefined || Number.isNaN(Number(v))) return '—';
+                return Number(v).toFixed(digits);
+            }
+            const profit = Number(mlSimResult.total_profit || 0);
+            const profitCls = profit >= 0 ? '#e74c3c' : '#27ae60';
+            const unrealized = Number(mlSimResult.unrealized_profit || 0);
+            const unrealizedCls = unrealized >= 0 ? '#e74c3c' : '#27ae60';
+            summaryEl.innerHTML = ''
+                + '<b>ML交易模拟统计</b>｜'
+                + '收益率：<b style="color:' + profitCls + ';">' + fmt(mlSimResult.total_return, 2) + '%</b>｜'
+                + '收益：<b style="color:' + profitCls + ';">' + fmt(mlSimResult.total_profit, 2) + '</b>｜'
+                + '未实现收益：<b style="color:' + unrealizedCls + ';">' + fmt(mlSimResult.unrealized_profit, 2) + '</b>｜'
+                + '成本：<b>' + fmt(mlSimResult.total_cost, 2) + '</b>'
+                + '（' + fmt(mlSimResult.total_cost_pct, 4) + '%）｜'
+                + '交易次数：<b>' + (mlSimResult.trade_count || 0) + '</b>｜'
+                + '信号胜率：<b>' + fmt(mlSimResult.signal_win_rate, 2) + '%</b>'
+                + '（' + (mlSimResult.signal_win_count || 0) + '/' + (mlSimResult.signal_total || 0) + '）｜'
+                + '期末资金：<b>' + fmt(mlSimResult.final_cash, 2) + '</b>｜'
+                + '期末权益：<b>' + fmt(mlSimResult.final_equity, 2) + '</b>｜'
+                + '持仓：<b>' + (mlSimResult.open_position || 0) + '</b>｜'
+                + '阈值：<b>' + fmt(mlSimResult.threshold_pct, 2) + '%</b>';
+        }
+
+        function renderMlTradeDetails() {
+            const body = document.getElementById('ml-trade-detail-body');
+            if (!body) return;
+
+            function fmt(v, digits) {
+                if (v === null || v === undefined || Number.isNaN(Number(v))) return '—';
+                return Number(v).toFixed(digits);
+            }
+
+            const rows = Array.isArray(mlSimResult && mlSimResult.round_trips) ? mlSimResult.round_trips : [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="9" style="color:#999;">当前参数下暂无完整买卖交易明细。</td></tr>';
+                return;
+            }
+
+            body.innerHTML = rows.map(function(r) {
+                const pnl = Number(r.pnl || 0);
+                const pnlCls = pnl >= 0 ? 'ml-pos' : 'ml-neg';
+                return ''
+                    + '<tr>'
+                    + '<td>' + (r.buy_date || '—') + '</td>'
+                    + '<td>' + (r.sell_date || '—') + '</td>'
+                    + '<td>' + fmt(r.buy_price, 3) + '</td>'
+                    + '<td>' + fmt(r.sell_price, 3) + '</td>'
+                    + '<td class="' + pnlCls + '">' + fmt(r.pnl, 2) + '</td>'
+                    + '<td class="' + pnlCls + '">' + fmt(r.pnl_pct, 4) + '</td>'
+                    + '<td>' + fmt(r.trade_signal_win_rate, 2) + '</td>'
+                    + '<td>' + (Number.isFinite(Number(r.qty)) ? Number(r.qty) : '—') + '</td>'
+                    + '<td>' + fmt(r.fee, 2) + '</td>'
+                    + '</tr>';
+            }).join('');
+        }
+
+        window.loadMlTradeSimulation = function(opts) {
+            const silent = !!(opts && opts.silent);
+            const btn = document.getElementById('ml-sim-apply-btn');
+            const statusEl = document.getElementById('ml-status');
+            const daysEl = document.getElementById('ml-train-days');
+            const startEl = document.getElementById('ml-sim-start');
+            const endEl = document.getElementById('ml-sim-end');
+            const thresholdEl = document.getElementById('ml-threshold-pct');
+
+            let trainDays = Number(daysEl && daysEl.value ? daysEl.value : 50);
+            if (!Number.isFinite(trainDays)) trainDays = 50;
+            trainDays = Math.max(20, Math.min(300, Math.round(trainDays)));
+            if (daysEl) daysEl.value = String(trainDays);
+
+            let thresholdPct = Number(thresholdEl && thresholdEl.value ? thresholdEl.value : 0);
+            if (!Number.isFinite(thresholdPct)) thresholdPct = 0;
+            thresholdPct = Math.max(0, thresholdPct);
+            if (thresholdEl) thresholdEl.value = String(thresholdPct);
+
+            const startDate = (startEl && startEl.value ? String(startEl.value).trim() : '');
+            const endDate = (endEl && endEl.value ? String(endEl.value).trim() : '');
+            if (startDate && endDate && startDate > endDate) {
+                if (!silent && statusEl) {
+                    statusEl.textContent = '❌ 交易起始日期不能晚于结束日期';
+                    statusEl.style.color = '#e74c3c';
+                }
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '应用中...';
+            }
+            if (!silent && statusEl) {
+                statusEl.textContent = '正在重算 ML 交易模拟...';
+                statusEl.style.color = '#4361ee';
+            }
+
+            fetch("{% url 'ml_trade_simulation' %}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    code: '{{ stock_code }}',
+                    train_days: trainDays,
+                    threshold_pct: thresholdPct,
+                    start_date: startDate,
+                    end_date: endDate,
+                })
+            }).then(function(resp) {
+                return resp.json();
+            }).then(function(data) {
+                if (data.status === 'ok') {
+                    mlSimResult = data.ml_sim_result || {};
+                    renderMlSimKline();
+                    renderMlSimSummary();
+                    renderMlTradeDetails();
+                    if (!silent && statusEl) {
+                        statusEl.textContent = '✅ ML交易参数已应用：区间 ' + (startDate || '最早') + ' ~ ' + (endDate || '最新') + '，阈值 ' + thresholdPct + '%';
+                        statusEl.style.color = '#27ae60';
+                    }
+                } else {
+                    if (!silent && statusEl) {
+                        statusEl.textContent = '❌ ' + (data.message || 'ML交易重算失败');
+                        statusEl.style.color = '#e74c3c';
+                    }
+                }
+            }).catch(function(err) {
+                if (!silent && statusEl) {
+                    statusEl.textContent = '❌ 请求失败：' + err;
+                    statusEl.style.color = '#e74c3c';
+                }
+            }).finally(function() {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '应用交易参数';
+                }
+            });
+        }
+
         updateChipPanelByIndex(dates.length - 1);
         chart.on('updateAxisPointer', function(evt) {
             const axesInfo = evt.axesInfo || [];
@@ -799,6 +2007,10 @@
             }
         });
         window.addEventListener('resize', () => chart.resize());
+        window.addEventListener('resize', function() {
+            if (mlOcChart) mlOcChart.resize();
+            if (mlSimChart) mlSimChart.resize();
+        });
     }
     </script>
 </body>

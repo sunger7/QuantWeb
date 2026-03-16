@@ -90,7 +90,30 @@
 
     function goDetail(code) {
         const strategyId = document.getElementById('strategy-select').value;
-        window.location.href = '/strategy/' + strategyId + '/' + code + '/';
+        var activeTab = document.querySelector('.tab-content.active');
+        var items = [];
+        if (activeTab) {
+            items = Array.from(activeTab.querySelectorAll('.stock-item')).filter(function(el) {
+                return el.style.display !== 'none';
+            }).map(function(el) {
+                return {
+                    code: String(el.dataset.code || '').trim(),
+                    strategy_id: strategyId,
+                };
+            }).filter(function(x) { return x.code; });
+        }
+
+        var idx = items.findIndex(function(x) { return x.code === code; });
+        if (idx < 0) idx = 0;
+
+        if (!items.length) {
+            window.location.href = '/strategy/' + strategyId + '/' + code + '/';
+            return;
+        }
+
+        var navKey = 'detail_nav_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        sessionStorage.setItem(navKey, JSON.stringify(items));
+        window.location.href = '/strategy/' + encodeURIComponent(strategyId) + '/' + encodeURIComponent(code) + '/?nav_key=' + encodeURIComponent(navKey) + '&nav_idx=' + idx;
     }
 
     function filterStocks() {

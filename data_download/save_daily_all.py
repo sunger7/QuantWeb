@@ -66,32 +66,32 @@ def main() -> None:
     df = ak.stock_zh_a_spot_em()
     output_file = f'{output_dir}/stock_zh_a_spot_em_{date_str}.csv'
     df.to_csv(output_file, index=False, encoding='utf-8-sig')
-    print(f'已保存当日全量股票信息: {output_file}')
+    # print(f'已保存当日全量股票信息: {output_file}')
 
-    updated_sh = 0
-    updated_sz = 0
-    for _, row in df.iterrows():
-        code = normalize_stock_code(row.get('代码'))
-        if not code:
-            continue
+    # updated_sh = 0
+    # updated_sz = 0
+    # for _, row in df.iterrows():
+    #     code = normalize_stock_code(row.get('代码'))
+    #     if not code:
+    #         continue
 
-        if code.startswith('6'):
-            target_dir = sh_dir
-        elif code.startswith(('0', '3')):
-            target_dir = sz_dir
-        else:
-            continue
+    #     if code.startswith('6'):
+    #         target_dir = sh_dir
+    #     elif code.startswith(('0', '3')):
+    #         target_dir = sz_dir
+    #     else:
+    #         continue
 
-        csv_path = f'{target_dir}/{code}.csv'
-        daily_row_df = spot_row_to_daily_row(row, date_str=date_str, code=code)
-        upsert_daily_row(csv_path, daily_row_df, date_str=date_str)
+    #     csv_path = f'{target_dir}/{code}.csv'
+    #     daily_row_df = spot_row_to_daily_row(row, date_str=date_str, code=code)
+    #     upsert_daily_row(csv_path, daily_row_df, date_str=date_str)
 
-        if code.startswith('6'):
-            updated_sh += 1
-        else:
-            updated_sz += 1
+    #     if code.startswith('6'):
+    #         updated_sh += 1
+    #     else:
+    #         updated_sz += 1
 
-    print(f'当日日线已更新: 上证 {updated_sh} 只, 深证 {updated_sz} 只')
+    # print(f'当日日线已更新: 上证 {updated_sh} 只, 深证 {updated_sz} 只')
 
 
 if __name__ == "__main__":

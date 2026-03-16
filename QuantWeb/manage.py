@@ -7,6 +7,13 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'QuantWeb.settings')
+
+    # 允许局域网访问：当执行 `runserver` 且未指定地址时，默认监听 0.0.0.0:8000
+    if len(sys.argv) >= 2 and sys.argv[1] == 'runserver':
+        has_addrport = any((not arg.startswith('-')) for arg in sys.argv[2:])
+        if not has_addrport:
+            sys.argv.append('0.0.0.0:8000')
+
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
