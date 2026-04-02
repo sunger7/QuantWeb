@@ -83,3 +83,7 @@ python manage.py runserver 0.0.0.0:8000
 ## 开发指南
 
 详细开发说明见：`chat_guide.md`
+
+、、、、
+git push origin refs/heads/v1.2:refs/heads/v1.2
+、、、、

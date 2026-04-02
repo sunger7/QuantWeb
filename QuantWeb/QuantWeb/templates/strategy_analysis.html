@@ -76,8 +76,33 @@
             <label>结束日期</label>
             <input id="analysis-end-date" class="date-input" type="text" name="end_date" value="{{ end_date }}" readonly onclick="openYmdPicker(this)">
             <button type="submit" id="btn-filter">筛选</button>
-            <button type="button" id="btn-force" style="background:#e74c3c;margin-left:auto;" onclick="startAnalysis(null, true)">🔄 强制重算</button>
+            <button type="button" id="btn-force" style="background:#e74c3c;margin-left:auto;" onclick="showForceModal()">🔄 强制重算</button>
         </form>
+
+        <!-- 强制重算卡片选择弹窗 -->
+        <div id="force-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998;align-items:center;justify-content:center;" onclick="if(event.target===this)hideForceModal();">
+            <div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:300px;box-shadow:0 8px 32px rgba(0,0,0,.2);">
+                <h3 style="margin-bottom:16px;font-size:1.1em;">选择要重算的卡片</h3>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:normal;">
+                        <input type="checkbox" class="card-check" value="上证日线" checked> 上证日线
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:normal;">
+                        <input type="checkbox" class="card-check" value="深证日线" checked> 深证日线
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:normal;">
+                        <input type="checkbox" class="card-check" value="基金_东方财富" checked> 基金(东方财富)
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:normal;">
+                        <input type="checkbox" class="card-check" value="中证300" checked> 中证300
+                    </label>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button type="button" onclick="hideForceModal()" style="padding:8px 18px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;">取消</button>
+                    <button type="button" onclick="confirmForceRecalc()" style="padding:8px 18px;background:#e74c3c;color:#fff;border:none;border-radius:6px;cursor:pointer;">开始计算</button>
+                </div>
+            </div>
+        </div>
 
         <!-- 后台计算进度横幅 -->
         <div id="task-banner" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 20px;margin-bottom:20px;font-size:0.95em;color:#856404;">
@@ -112,16 +137,16 @@
                     </thead>
                     <tbody>
                         {% for row in items %}
-                        <tr>
-                            <td onclick="goDetailFromAnalysis('{{ row.code }}')">{{ row.code }}</td>
-                            <td onclick="goDetailFromAnalysis('{{ row.code }}')">{{ row.name }}</td>
-                            <td onclick="goDetailFromAnalysis('{{ row.code }}')">{{ row.start_price }}</td>
-                            <td onclick="goDetailFromAnalysis('{{ row.code }}')">{{ row.end_price }}</td>
-                            <td onclick="goDetailFromAnalysis('{{ row.code }}')" class="{% if row.total_return_pct >= 0 %}positive{% else %}negative{% endif %}">
+                        <tr onclick="goDetailFromAnalysis('{{ row.code }}', '{{ category }}')">
+                            <td>{{ row.code }}</td>
+                            <td>{{ row.name }}</td>
+                            <td>{{ row.start_price }}</td>
+                            <td>{{ row.end_price }}</td>
+                            <td class="{% if row.total_return_pct >= 0 %}positive{% else %}negative{% endif %}">
                                 {{ row.total_return_pct }}%
                             </td>
-                            <td onclick="goDetailFromAnalysis('{{ row.code }}')" class="{% if row.last_signal_side == 'buy' %}buy-date{% elif row.last_signal_side == 'sell' %}sell-date{% endif %}">{{ row.last_signal_date|default:'—' }}</td>
-                            <td>
+                            <td class="{% if row.last_signal_side == 'buy' %}buy-date{% elif row.last_signal_side == 'sell' %}sell-date{% endif %}">{{ row.last_signal_date|default:'—' }}</td>
+                            <td onclick="event.stopPropagation()">
                                 <button class="fav-btn{% if row.code in watchlist_codes %} active{% endif %}"
                                         data-code="{{ row.code }}"
                                         onclick="toggleFav(this, '{{ row.code }}')">
@@ -140,6 +165,18 @@
     </div>
 
     <script>
+    // 服务端注入的各 tab 股票代码列表，key = 类别名，value = code 数组
+    var __analysisNavLists = {{ nav_lists_json|safe }};
+    // 当前激活 tab 的类别名（由 switchTab 更新）
+    var __activeTabCategory = null;
+    // 初始化：找到初始 active tab 对应的类别
+    (function() {
+        var activeBtn = document.querySelector('.tab-btn.active');
+        if (activeBtn) {
+            __activeTabCategory = activeBtn.textContent.trim().replace(/（\d+）$/, '').trim();
+        }
+    })();
+
     var __ymdPickerState = { panel: null, target: null, yearSel: null, monthSel: null, daySel: null };
 
     function _daysInMonth(y, m) {
@@ -262,18 +299,34 @@
         panel.style.display = 'block';
     }
 
+    /* ── 强制重算弹窗 ── */
+    function showForceModal() {
+        var m = document.getElementById('force-modal');
+        m.style.display = 'flex';
+    }
+    function hideForceModal() {
+        document.getElementById('force-modal').style.display = 'none';
+    }
+    function confirmForceRecalc() {
+        var checks = document.querySelectorAll('.card-check:checked');
+        if (checks.length === 0) { alert('请至少选择一个卡片'); return; }
+        var cards = Array.from(checks).map(function(c){ return c.value; }).join(',');
+        hideForceModal();
+        startAnalysis(null, true, cards);
+    }
+
     /* ── 后台任务：筛选 / 强制重算 ── */
     var _currentTaskId = null;
     var _pollTimer = null;
 
-    function startAnalysis(event, forceRecalc) {
+    function startAnalysis(event, forceRecalc, cards) {
         if (event) event.preventDefault();
-        if (forceRecalc && !confirm('确认要重新计算所有策略结果？这将覆盖所有旧文件，耗时较长。')) return false;
         var form = document.getElementById('analysis-form');
         var startDate = form.querySelector('[name=start_date]').value;
         var endDate = form.querySelector('[name=end_date]').value;
         var url = "{% url 'start_analysis_task' strategy_id %}?start_date=" + encodeURIComponent(startDate) + "&end_date=" + encodeURIComponent(endDate);
         if (forceRecalc) url += "&force_recalc=1";
+        if (cards) url += "&cards=" + encodeURIComponent(cards);
 
         // 禁用按钮、显示横幅
         document.getElementById('btn-filter').disabled = true;
@@ -400,8 +453,8 @@
         document.querySelectorAll('.tab-content').forEach(function(tab, tabIdx) {
             var rows = tab.querySelectorAll('tbody tr');
             for (var i = 0; i < rows.length; i++) {
-                var code = (rows[i].cells[0]?.innerText || '').trim().toLowerCase();
-                var name = (rows[i].cells[1]?.innerText || '').trim().toLowerCase();
+                var code = ((rows[i].cells[0] && rows[i].cells[0].innerText) || '').trim().toLowerCase();
+                var name = ((rows[i].cells[1] && rows[i].cells[1].innerText) || '').trim().toLowerCase();
                 if (code.includes(input) || name.includes(input)) {
                     rows[i].classList.add('search-highlight');
                     matchCount++;
@@ -443,6 +496,8 @@
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById('tab-' + idx).classList.add('active');
         btn.classList.add('active');
+        // 更新当前激活的 tab 类别名（去掉末尾"（N）"）
+        __activeTabCategory = btn.textContent.trim().replace(/（\d+）$/, '').trim();
     }
 
     function sortTable(tableId, colIdx) {
@@ -452,8 +507,8 @@
         const order = table.getAttribute('data-sort-order') === 'asc' ? 'desc' : 'asc';
         table.setAttribute('data-sort-order', order);
         rows.sort((a, b) => {
-            const av = a.cells[colIdx]?.innerText || '';
-            const bv = b.cells[colIdx]?.innerText || '';
+            const av = (a.cells[colIdx] && a.cells[colIdx].innerText) || '';
+            const bv = (b.cells[colIdx] && b.cells[colIdx].innerText) || '';
 
             if (colIdx === 5) {
                 const at = Date.parse(av.trim());
@@ -495,37 +550,44 @@
         });
     }
 
-    function goDetailFromAnalysis(code) {
-        var activeTab = document.querySelector('.tab-content.active');
-        if (!activeTab) {
-            window.location.href = '/strategy/{{ strategy_id }}/' + encodeURIComponent(code) + '/';
-            return;
+    // 固定 navKey，避免随机 key 在 sessionStorage 中找不到
+    var _ANALYSIS_NAV_KEY = 'detail_nav_analysis_{{ strategy_id }}';
+
+    function goDetailFromAnalysis(code, category) {
+        // category 直接从模板渲染传入，避免依赖 JS 动态跟踪 __activeTabCategory
+        var cat = category || __activeTabCategory;
+        var codes = (cat && __analysisNavLists[cat]) || [];
+        var navKey = '';
+        var navIdx = 0;
+        if (codes.length) {
+            var idx = codes.indexOf(code);
+            navIdx = Math.max(0, idx < 0 ? 0 : idx);
+            navKey = _ANALYSIS_NAV_KEY;
+            try {
+                sessionStorage.clear();
+                sessionStorage.setItem(_ANALYSIS_NAV_KEY, JSON.stringify(codes));
+            } catch (e) {
+                // 数据量过大时只存当前索引附近 200 条
+                try {
+                    sessionStorage.clear();
+                    var half = 500;
+                    var start = Math.max(0, navIdx - half);
+                    var end = Math.min(codes.length, navIdx + half);
+                    var slice = codes.slice(start, end);
+                    var sliceIdx = navIdx - start;
+                    sessionStorage.setItem(_ANALYSIS_NAV_KEY, JSON.stringify(slice));
+                    navIdx = sliceIdx;
+                } catch (e2) {
+                    console.warn('[Nav] sessionStorage unavailable:', e2);
+                    navKey = '';
+                }
+            }
         }
+        console.log(navKey)
 
-        var rows = Array.from(activeTab.querySelectorAll('tbody tr')).filter(function(row) {
-            if (!row || !row.cells || row.cells.length < 1) return false;
-            var c = (row.cells[0].innerText || '').trim();
-            return !!c && c !== '暂无数据';
-        });
-
-        var items = rows.map(function(row) {
-            return {
-                code: (row.cells[0].innerText || '').trim(),
-                strategy_id: '{{ strategy_id }}'
-            };
-        }).filter(function(x) { return x.code; });
-
-        var idx = items.findIndex(function(x) { return x.code === code; });
-        if (idx < 0) idx = 0;
-
-        if (!items.length) {
-            window.location.href = '/strategy/{{ strategy_id }}/' + encodeURIComponent(code) + '/';
-            return;
-        }
-
-        var navKey = 'detail_nav_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        sessionStorage.setItem(navKey, JSON.stringify(items));
-        window.location.href = '/strategy/{{ strategy_id }}/' + encodeURIComponent(code) + '/?nav_key=' + encodeURIComponent(navKey) + '&nav_idx=' + idx;
+        
+        var qs = navKey ? '?nav_key=' + encodeURIComponent(navKey) + '&nav_idx=' + navIdx : '';
+        window.location.href = '/strategy/{{ strategy_id }}/' + encodeURIComponent(code) + '/' + qs;
     }
     </script>
 </body>

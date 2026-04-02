@@ -30,6 +30,27 @@
         .stock-item .code { font-weight: 600; font-size: 0.9em; color: #4361ee; }
         .stock-item .name { font-size: 0.85em; color: #666; }
         .count-badge { font-size: 0.85em; color: #888; margin-bottom: 12px; }
+
+        /* 自选排序 */
+        .wl-sortable-list { display: flex; flex-direction: column; gap: 6px; }
+        .wl-sortable-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fff; border: 1px solid #e8ebf2; border-radius: 8px; user-select: none; }
+        .wl-sortable-item.dragging { opacity: 0.35; border-style: dashed; }
+        .drag-handle { cursor: grab; color: #bbb; font-size: 1.15em; padding: 0 2px; line-height: 1; flex-shrink: 0; }
+        .drag-handle:active { cursor: grabbing; }
+        .wl-info { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .wl-code { font-weight: 600; font-size: 0.9em; color: #4361ee; flex-shrink: 0; }
+        .wl-name { font-size: 0.86em; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .wl-strategy-badge { font-size: 0.74em; background: #eef2ff; color: #4361ee; border: 1px solid #d0d9f8; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; }
+        .wl-go-btn { padding: 5px 14px; font-size: 0.83em; border: 1px solid #4361ee; border-radius: 6px; background: #fff; color: #4361ee; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+        .wl-go-btn:hover { background: #4361ee; color: #fff; }
+        .wl-icon-btn { width: 28px; height: 28px; border: 1px solid #d7dced; border-radius: 5px; background: #fff; color: #666; cursor: pointer; font-size: 0.8em; flex-shrink: 0; padding: 0; }
+        .wl-icon-btn:hover { background: #f0f4ff; border-color: #4361ee; color: #4361ee; }
+        .wl-del-btn { width: 28px; height: 28px; border: 1px solid #fcd0d0; border-radius: 5px; background: #fff; color: #e74c3c; cursor: pointer; font-size: 0.85em; flex-shrink: 0; padding: 0; }
+        .wl-del-btn:hover { background: #fff0f0; border-color: #e74c3c; }
+        .wl-empty { text-align: center; padding: 48px 0; color: #bbb; font-size: 0.95em; }
+        .wl-hint { font-size: 0.8em; color: #aaa; margin-bottom: 10px; }
+        .wl-saved { font-size: 0.8em; color: #27ae60; margin-left: 8px; opacity: 0; transition: opacity .3s; }
+        .wl-saved.show { opacity: 1; }
     </style>
 </head>
 <body>
@@ -61,6 +82,7 @@
                 {{ category }}（{{ items|length }}）
             </button>
             {% endfor %}
+            <button class="tab-btn" id="wl-tab-btn" onclick="switchTab('wl', this)">⭐ 自选（{{ watchlist_items|length }}）</button>
         </div>
 
         {% for category, items in stocks.items %}
@@ -78,6 +100,33 @@
             </div>
         </div>
         {% endfor %}
+
+        <!-- 自选 tab -->
+        <div class="tab-content" id="tab-wl">
+            <div class="card">
+                {% if watchlist_items %}
+                <div class="wl-hint">拖拽 ⠿ 手柄调整顺序，松手自动保存<span class="wl-saved" id="wl-saved-hint">✓ 已保存</span></div>
+                <div class="wl-sortable-list" id="wl-list">
+                    {% for item in watchlist_items %}
+                    <div class="wl-sortable-item" draggable="true" data-code="{{ item.code }}" data-strategy="{{ item.strategy_id }}">
+                        <span class="drag-handle" title="拖拽排序">⠿</span>
+                        <div class="wl-info">
+                            <span class="wl-code">{{ item.code }}</span>
+                            <span class="wl-name">{{ item.name }}</span>
+                        </div>
+                        <span class="wl-strategy-badge">{{ item.strategy_id }}</span>
+                        <button class="wl-icon-btn" title="置顶" onclick="wlMoveTop(this)">▲</button>
+                        <button class="wl-icon-btn" title="置底" onclick="wlMoveBottom(this)">▼</button>
+                        <button class="wl-go-btn" onclick="goWatchlistDetail('{{ item.code }}', '{{ item.strategy_id }}')">查看</button>
+                        <button class="wl-del-btn" title="移除自选" onclick="wlRemove(this,'{{ item.code }}','{{ item.strategy_id }}')">✕</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="wl-empty">暂无自选股，请在股票详情页点击「+ 自选」添加</div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
     <script>
@@ -123,6 +172,108 @@
             const name = (el.dataset.name || '').toLowerCase();
             el.style.display = (code.includes(q) || name.includes(q)) ? '' : 'none';
         });
+    }
+
+    // 自选排序拖拽
+    (function() {
+        var list = document.getElementById('wl-list');
+        if (!list) return;
+        var dragSrc = null;
+
+        list.addEventListener('dragstart', function(e) {
+            var item = e.target.closest('.wl-sortable-item');
+            if (!item) return;
+            dragSrc = item;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(function() { if (dragSrc) dragSrc.classList.add('dragging'); }, 0);
+        });
+
+        list.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            var item = e.target.closest('.wl-sortable-item');
+            if (!item || item === dragSrc) return;
+            var rect = item.getBoundingClientRect();
+            if (e.clientY < rect.top + rect.height / 2) {
+                list.insertBefore(dragSrc, item);
+            } else {
+                list.insertBefore(dragSrc, item.nextSibling);
+            }
+        });
+
+        list.addEventListener('dragend', function(e) {
+            var item = e.target.closest('.wl-sortable-item');
+            if (item) item.classList.remove('dragging');
+            dragSrc = null;
+            saveWatchlistOrder();
+        });
+    })();
+
+    function saveWatchlistOrder() {
+        var list = document.getElementById('wl-list');
+        if (!list) return;
+        var items = Array.from(list.querySelectorAll('.wl-sortable-item')).map(function(el) {
+            return { code: el.dataset.code, strategy_id: el.dataset.strategy };
+        });
+        fetch("{% url 'watchlist_api' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reorder', items: items })
+        }).then(function(r) { return r.json(); }).then(function() {
+            var hint = document.getElementById('wl-saved-hint');
+            if (hint) {
+                hint.classList.add('show');
+                setTimeout(function() { hint.classList.remove('show'); }, 1500);
+            }
+        });
+    }
+
+    function wlMoveTop(btn) {
+        var item = btn.closest('.wl-sortable-item');
+        var list = item.parentNode;
+        list.insertBefore(item, list.firstChild);
+        saveWatchlistOrder();
+    }
+
+    function wlMoveBottom(btn) {
+        var item = btn.closest('.wl-sortable-item');
+        var list = item.parentNode;
+        list.appendChild(item);
+        saveWatchlistOrder();
+    }
+
+    function wlRemove(btn, code, strategyId) {
+        if (!confirm('确认移除自选：' + code + '？')) return;
+        var item = btn.closest('.wl-sortable-item');
+        fetch("{% url 'watchlist_api' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'remove', code: code, strategy_id: strategyId })
+        }).then(function(r) { return r.json(); }).then(function() {
+            item.remove();
+            var remaining = document.querySelectorAll('#wl-list .wl-sortable-item').length;
+            var tabBtn = document.getElementById('wl-tab-btn');
+            if (tabBtn) tabBtn.textContent = '⭐ 自选（' + remaining + '）';
+            if (remaining === 0) {
+                var card = document.querySelector('#tab-wl .card');
+                if (card) card.innerHTML = '<div class="wl-empty">暂无自选股，请在股票详情页点击「+ 自选」添加</div>';
+            }
+        });
+    }
+
+    function goWatchlistDetail(code, strategyId) {
+        // 只把相同策略的自选股放进导航列表
+        var items = Array.from(document.querySelectorAll('#wl-list .wl-sortable-item'))
+            .filter(function(el) { return el.dataset.strategy === strategyId; })
+            .map(function(el) { return el.dataset.code; });
+        var idx = items.indexOf(code);
+        if (idx < 0) idx = 0;
+        var navKey = 'detail_nav_wl';
+        try {
+            sessionStorage.clear();
+            sessionStorage.setItem(navKey, JSON.stringify(items));
+        } catch(e) { navKey = ''; }
+        var qs = navKey ? '?nav_key=' + encodeURIComponent(navKey) + '&nav_idx=' + idx : '';
+        window.location.href = '/strategy/' + encodeURIComponent(strategyId) + '/' + encodeURIComponent(code) + '/' + qs;
     }
     </script>
 </body>

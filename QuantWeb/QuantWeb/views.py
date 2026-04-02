@@ -31,6 +31,7 @@ WATCHLIST_FILE = os.path.join(os.path.dirname(__file__), '../../data/watchlist.j
 DEFAULT_STRATEGY_FILE = os.path.join(os.path.dirname(__file__), '../../data/stock_default_strategy.json')
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), '../../data/settings.json')
 AI_GUIDE_HISTORY_FILE = os.path.join(os.path.dirname(__file__), '../../data/ai_guide_history.json')
+DEBATE_HISTORY_FILE = os.path.join(os.path.dirname(__file__), '../../data/debate_history.json')
 BOARD_COMPONENTS_FILE = os.path.join(os.path.dirname(__file__), '../../data/board_components.json')
 TODAY_STOCK_JSON_FILE = os.path.join(os.path.dirname(__file__), '../../data/today_stock_data.json')
 CSI300_LIST_FILE = os.path.join(os.path.dirname(__file__), '../../data/stock_csi300_spot_em.csv')
@@ -47,8 +48,10 @@ _bg_tasks = {}          # {task_id: {status, result, created, description}}
 _bg_tasks_lock = threading.Lock()
 _TASK_EXPIRE_SECONDS = 600  # 10 分钟后自动清理
 _ai_guide_history_lock = threading.Lock()
+_debate_history_lock = threading.Lock()
 _today_stock_lock = threading.Lock()
 _board_update_lock = threading.Lock()
+_board_index_cache = {}   # { updated_at_str: { code: [board_name, ...] } }
 _board_update_state = {
     'task_id': '',
     'running': False,
@@ -133,6 +136,42 @@ def _append_ai_guide_record(stock_code, payload, max_records=50):
             'records': records,
         }
         _save_ai_guide_history(history)
+
+
+def _get_debate_record(stock_code):
+    code = _normalize_stock_code(stock_code)
+    if not code:
+        return None
+    with _debate_history_lock:
+        if not os.path.exists(DEBATE_HISTORY_FILE):
+            return None
+        try:
+            with open(DEBATE_HISTORY_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            rec = data.get(code)
+            return rec if isinstance(rec, dict) else None
+        except Exception:
+            return None
+
+
+def _save_debate_record(stock_code, payload):
+    code = _normalize_stock_code(stock_code)
+    if not code or not isinstance(payload, dict):
+        return
+    with _debate_history_lock:
+        data = {}
+        if os.path.exists(DEBATE_HISTORY_FILE):
+            try:
+                with open(DEBATE_HISTORY_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                if not isinstance(data, dict):
+                    data = {}
+            except Exception:
+                data = {}
+        data[code] = payload
+        os.makedirs(os.path.dirname(DEBATE_HISTORY_FILE), exist_ok=True)
+        with open(DEBATE_HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 def _to_float_or_none(value):
@@ -425,6 +464,24 @@ def _load_board_components_payload():
         return {}
 
 
+def _get_stock_index(payload):
+    """返回 {code: [board_name, ...]} 索引。优先用 JSON 中的 stock_index，否则实时构建并缓存。"""
+    if 'stock_index' in payload:
+        return payload['stock_index']
+    key = payload.get('updated_at', '__nokey__')
+    if key in _board_index_cache:
+        return _board_index_cache[key]
+    index = {}
+    for _b in (payload.get('boards') or []):
+        bname = str(_b.get('board_name', '')).strip()
+        for c in (_b.get('components') or []):
+            code = str(c.get('code', '')).strip()
+            if code:
+                index.setdefault(code, []).append(bname)
+    _board_index_cache[key] = index
+    return index
+
+
 def _to_float_safe(value):
     try:
         if value is None or value == '':
@@ -500,18 +557,29 @@ def _update_board_data_stream():
 
         _time.sleep(0.15)
 
+    # 构建反向索引：{code: [board_name, ...]}
+    stock_index = {}
+    for _b in boards:
+        bname = _b.get('board_name', '')
+        for c in (_b.get('components') or []):
+            code = str(c.get('code', '')).strip()
+            if code:
+                stock_index.setdefault(code, []).append(bname)
+
     payload = {
         'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'board_type': 'industry',
         'board_count': len(boards),
         'failed_count': len(failed),
         'boards': boards,
+        'stock_index': stock_index,
         'failed': failed,
     }
 
     os.makedirs(os.path.dirname(BOARD_COMPONENTS_FILE), exist_ok=True)
     with open(BOARD_COMPONENTS_FILE, 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
+    _board_index_cache.clear()  # 清旧缓存
 
     yield {
         'status': 'ok',
@@ -834,18 +902,42 @@ def _load_csi300_stock_items():
     return items
 
 
-def get_analysis_data(data_type, start_date='', end_date='',strategy_id='DualMA', 
+def get_analysis_data(data_type, start_date='', end_date='',strategy_id='DualMA',
                       strategy_params={"fast_window": 10, "slow_window": 30},
                       force_recalc=False,max_workers=8):
     """遍历板块目录下所有CSV，计算收益率并排序返回（多线程回测）"""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    data_dir = os.path.join(DATA_DIR, data_type)
-    if not os.path.exists(data_dir):
-        return []
+    # 中证300：在沪深两个目录中找到对应股票的 CSV 文件
+    if data_type == '中证300':
+        csi300_items = _load_csi300_stock_items()
+        if not csi300_items:
+            return []
+        csi300_codes = {item['code'] for item in csi300_items}
+        # 构建 code -> csv路径 映射
+        csv_file_map = {}  # code -> (fname, data_dir)
+        for sub_dir in ['上证日线', '深证日线']:
+            d = os.path.join(DATA_DIR, sub_dir)
+            if not os.path.exists(d):
+                continue
+            for f in os.listdir(d):
+                if f.endswith('.csv'):
+                    code = f.replace('.csv', '')
+                    if code in csi300_codes:
+                        csv_file_map[code] = (f, d)
+        if not csv_file_map:
+            return []
+        # 以 (fname, actual_data_dir) 列表形式传给后续处理
+        csv_entries = list(csv_file_map.values())
+        actual_data_dir = None  # 由 csv_entries 各自携带
+    else:
+        actual_data_dir = os.path.join(DATA_DIR, data_type)
+        if not os.path.exists(actual_data_dir):
+            return []
+        csv_entries = [(f, actual_data_dir) for f in os.listdir(actual_data_dir) if f.endswith('.csv')]
 
     name_mapping = load_name_mapping()
-    
+
     # 根据 strategy_id 动态获取策略类
     strategy_class = None
     try:
@@ -860,7 +952,7 @@ def get_analysis_data(data_type, start_date='', end_date='',strategy_id='DualMA'
 
     settings = _load_settings()
     commission = settings.get('commission', 0.00015)
-    def _process_single_stock(fname):
+    def _process_single_stock(fname, data_dir=actual_data_dir):
         """处理单只股票的读取 + 回测 + 保存，返回结果 dict 或 None"""
         code = fname.replace('.csv', '')
         try:
@@ -871,14 +963,18 @@ def get_analysis_data(data_type, start_date='', end_date='',strategy_id='DualMA'
         if len(df) < 2:
             return None
         df['date'] = pd.to_datetime(df.iloc[:, 0])
+
+        # 回测使用完整历史数据（与详情页一致），保证均线计算正确
+        # start_date/end_date 仅用于计算展示区间的收益率
+        df_display = df.copy()
         if start_date:
-            df = df[df['date'] >= pd.to_datetime(start_date)]
+            df_display = df_display[df_display['date'] >= pd.to_datetime(start_date)]
         if end_date:
-            df = df[df['date'] <= pd.to_datetime(end_date)]
-        if len(df) < 2:
+            df_display = df_display[df_display['date'] <= pd.to_datetime(end_date)]
+        if len(df_display) < 2:
             return None
-        sp = df.iloc[0, 4]
-        ep = df.iloc[-1, 4]
+        sp = df_display.iloc[0, 4]
+        ep = df_display.iloc[-1, 4]
         ret = (ep - sp) / sp * 100
 
         backtest_json_path = os.path.join(REPORT_DIRS[strategy_id], f'{code}_backtest.json')
@@ -944,13 +1040,11 @@ def get_analysis_data(data_type, start_date='', end_date='',strategy_id='DualMA'
             'html_report': html_report_path if os.path.exists(html_report_path) else None,
         }
 
-    # 收集所有 CSV 文件名
-    csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
-
     # 多线程并发回测
     results = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_map = {executor.submit(_process_single_stock, fname): fname for fname in csv_files}
+        future_map = {executor.submit(_process_single_stock, fname, ddir): (fname, ddir)
+                      for fname, ddir in csv_entries}
         for future in as_completed(future_map):
             try:
                 result = future.result()
@@ -969,7 +1063,7 @@ def _load_existing_results(strategy_id):
     """只读取已有的报告文件，不做任何计算"""
     report_dir = REPORT_DIRS.get(strategy_id, '')
     if not report_dir or not os.path.exists(report_dir):
-        return {'上证日线': [], '深证日线': [], '基金_东方财富': []}
+        return {'上证日线': [], '深证日线': [], '基金_东方财富': [], '中证300': []}
 
     name_mapping = load_name_mapping()
     # 根据代码判断属于哪个板块
@@ -981,8 +1075,11 @@ def _load_existing_results(strategy_id):
                 if f.endswith('.csv'):
                     dir_codes[f.replace('.csv', '')] = data_type
 
+    # 加载中证300成分股代码集合
+    csi300_codes = {item['code'] for item in _load_csi300_stock_items()}
+
     # 扫描 backtest JSON 文件
-    results = {'上证日线': [], '深证日线': [], '基金_东方财富': []}
+    results = {'上证日线': [], '深证日线': [], '基金_东方财富': [], '中证300': []}
     for fname in os.listdir(report_dir):
         if not fname.endswith('_backtest.json'):
             continue
@@ -1029,7 +1126,7 @@ def _load_existing_results(strategy_id):
             except Exception:
                 pass
 
-        results[data_type].append({
+        entry = {
             'code': code,
             'name': name_mapping.get(code, 'N/A'),
             'total_return_pct': total_return_pct,
@@ -1038,7 +1135,10 @@ def _load_existing_results(strategy_id):
             'last_signal_date': last_signal_date,
             'last_signal_side': last_signal_side,
             'data_type': data_type,
-        })
+        }
+        results[data_type].append(entry)
+        if code in csi300_codes:
+            results['中证300'].append(entry)
 
     for dt in results:
         results[dt].sort(key=lambda x: x['total_return_pct'], reverse=True)
@@ -1340,6 +1440,12 @@ def strategy_analysis(request, strategy_id):
     wl = _load_watchlist()
     watchlist_codes = {w['code'] for w in wl if w['strategy_id'] == strategy_id}
 
+    # 按 tab 顺序生成导航列表（仅 code，前端用于上一个/下一个）
+    nav_lists = {
+        category: [item['code'] for item in items]
+        for category, items in analysis_data.items()
+    }
+
     return render(request, 'strategy_analysis.html', {
         'strategy_id': strategy_id,
         'strategy_name': strategy_name,
@@ -1347,6 +1453,7 @@ def strategy_analysis(request, strategy_id):
         'start_date': start_date,
         'end_date': end_date,
         'watchlist_codes': watchlist_codes,
+        'nav_lists_json': json.dumps(nav_lists, ensure_ascii=False),
     })
 
 
@@ -1738,6 +1845,13 @@ def start_analysis_task(request, strategy_id):
     start_date = request.GET.get('start_date', '2023-01-01')
     end_date = request.GET.get('end_date', '')
     force_recalc = request.GET.get('force_recalc', '') == '1'
+    # 支持指定计算哪些卡片，逗号分隔，默认全部
+    _all_data_types = ['上证日线', '深证日线', '基金_东方财富', '中证300']
+    cards_param = request.GET.get('cards', '')
+    if cards_param:
+        selected_cards = [c for c in cards_param.split(',') if c in _all_data_types]
+    else:
+        selected_cards = _all_data_types
 
     if not end_date:
         from datetime import date
@@ -1748,7 +1862,7 @@ def start_analysis_task(request, strategy_id):
         from concurrent.futures import ThreadPoolExecutor
         settings = _load_settings()
         mw = settings.get('max_workers', 8)
-        data_types = ['上证日线', '深证日线', '基金_东方财富']
+        data_types = selected_cards
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = {
                 dt: executor.submit(get_analysis_data, dt, start_date, end_date,
@@ -2024,6 +2138,44 @@ def strategy_detail(request, strategy_id, stock_code):
     elif saved_ai_text:
         saved_ai_count = 1
 
+    saved_debate = _get_debate_record(stock_code) or {}
+
+    # 查找当前股票所属板块（O(1) 索引查找）
+    board_payload = _load_board_components_payload()
+    board_updated_at = str(board_payload.get('updated_at', '') or '')
+    stock_index = _get_stock_index(board_payload)
+    _code_key = str(stock_code).strip()
+    _board_names = stock_index.get(_code_key, [])
+    _boards_by_name = {str(b.get('board_name', '')).strip(): b for b in (board_payload.get('boards') or []) if isinstance(b, dict)}
+    stock_boards = []
+    for _bname in _board_names:
+        _b = _boards_by_name.get(_bname)
+        if not _b:
+            continue
+        _comps = _b.get('components') or []
+        stock_boards.append({
+            'board_name': str(_b.get('board_name', '')).strip(),
+            'board_code': str(_b.get('board_code', '')).strip(),
+            'pct_change': _b.get('pct_change'),
+            'total_market_value': _b.get('total_market_value'),
+            'turnover_rate': _b.get('turnover_rate'),
+            'rise_count': _b.get('rise_count'),
+            'fall_count': _b.get('fall_count'),
+            'leading_stock': str(_b.get('leading_stock', '')).strip(),
+            'leading_stock_pct': _b.get('leading_stock_pct'),
+            'components': [
+                {
+                    'code': str(c.get('code', '')).strip(),
+                    'name': str(c.get('name', '')).strip(),
+                    'latest_price': c.get('latest_price'),
+                    'pct_change': c.get('pct_change'),
+                    'turnover_rate': c.get('turnover_rate'),
+                    'pe_ttm': c.get('pe_ttm'),
+                }
+                for c in _comps if isinstance(c, dict)
+            ],
+        })
+
     global_settings = _load_settings()
     from datetime import date as _date
     return render(request, 'strategy_detail.html', {
@@ -2054,6 +2206,16 @@ def strategy_detail(request, strategy_id, stock_code):
         'ml_train_start_date': str(global_settings.get('ml_train_start_date', '') or ''),
         'ml_train_end_date': str(global_settings.get('ml_train_end_date', '') or ''),
         'ml_sim_result': json.dumps(ml_result, ensure_ascii=False),
+        'ollama_url': os.getenv('OLLAMA_URL', 'http://localhost:11434').rstrip('/'),
+        'ollama_model': os.getenv('OLLAMA_MODEL', 'qwen2.5:7b'),
+        'debate_saved_bull_json': json.dumps(str(saved_debate.get('bull', '') or ''), ensure_ascii=False),
+        'debate_saved_bear_json': json.dumps(str(saved_debate.get('bear', '') or ''), ensure_ascii=False),
+        'debate_saved_decision_json': json.dumps(str(saved_debate.get('decision', '') or ''), ensure_ascii=False),
+        'debate_saved_updated_at': str(saved_debate.get('updated_at', '') or ''),
+        'debate_saved_model': str(saved_debate.get('model', '') or ''),
+        'stock_boards': stock_boards,
+        'stock_boards_json': json.dumps(stock_boards, ensure_ascii=False),
+        'board_updated_at': board_updated_at,
     })
 
 
@@ -2809,9 +2971,15 @@ def stock_select(request):
         '基金_东方财富': _list('基金_东方财富'),
         '中证300': _load_csi300_stock_items(),
     }
+    wl = _load_watchlist()
+    watchlist_items = [
+        {'code': w['code'], 'strategy_id': w['strategy_id'], 'name': name_mapping.get(w['code'], 'N/A')}
+        for w in wl
+    ]
     return render(request, 'stock_select.html', {
         'stocks': stocks,
         'strategies': STRATEGIES,
+        'watchlist_items': watchlist_items,
     })
 
 
@@ -2848,6 +3016,42 @@ def serve_report(request, strategy_id, stock_code):
     if not report_path or not os.path.exists(report_path):
         raise Http404('报告文件不存在')
     return FileResponse(open(report_path, 'rb'), content_type='text/html')
+
+
+def get_kline_data(request):
+    """API: 返回指定股票的最新K线数据（用于前端局部刷新，避免整页重绘）"""
+    code = request.GET.get('code', '').strip()
+    if not code:
+        return JsonResponse({'error': 'missing code'}, status=400)
+
+    kline_df, _ = _load_raw_kline_df(code)
+    if kline_df is None or kline_df.empty:
+        return JsonResponse({'error': 'no data'}, status=404)
+
+    if '日期' in kline_df.columns:
+        kline_df.columns = [
+            'date', 'code', 'open', 'close', 'high', 'low',
+            'volume', 'amount', 'amplitude', 'pct_chg', 'chg', 'turnover'
+        ]
+    else:
+        kline_df.columns = [
+            'date', 'code', 'open', 'close', 'high', 'low',
+            'volume', 'amount', 'amplitude', 'pct_chg', 'chg', 'turnover'
+        ]
+
+    try:
+        kline_df['date'] = pd.to_datetime(kline_df['date'], errors='coerce')
+        kline_df = kline_df.dropna(subset=['date']).sort_values('date').reset_index(drop=True)
+        kline_df['date'] = kline_df['date'].dt.strftime('%Y-%m-%d')
+    except Exception:
+        pass
+
+    for col in ['open', 'close', 'high', 'low', 'volume', 'amount', 'turnover']:
+        if col in kline_df.columns:
+            kline_df[col] = pd.to_numeric(kline_df[col], errors='coerce').fillna(0)
+
+    records = kline_df[['date', 'open', 'close', 'high', 'low', 'volume', 'turnover']].to_dict(orient='records')
+    return JsonResponse({'kline': records})
 
 
 # ── 数据更新 ─────────────────────────────────────────
@@ -3192,6 +3396,17 @@ def watchlist_api(request):
             _save_watchlist(wl)
             return JsonResponse({'status': 'ok', 'in_watchlist': False})
 
+        elif action == 'reorder':
+            new_order = body.get('items', [])
+            if isinstance(new_order, list):
+                valid = [
+                    {'code': str(it.get('code', '')), 'strategy_id': str(it.get('strategy_id', ''))}
+                    for it in new_order
+                    if isinstance(it, dict) and it.get('code') and it.get('strategy_id')
+                ]
+                _save_watchlist(valid)
+            return JsonResponse({'status': 'ok'})
+
         elif action == 'set_default':
             ds = _load_default_strategies()
             ds[code] = strategy_id
@@ -3421,3 +3636,228 @@ def ai_stock_guide(request):
             'google_url': google_url,
             'guide_text': '',
         }, status=500)
+
+
+# ── Ollama 多空辩论 ───────────────────────────────────
+
+@csrf_exempt
+def ollama_debate(request):
+    """调用本地 Ollama 模型进行多空辩论，SSE 流式依次返回多头/空头/决策者意见"""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '仅支持 POST'}, status=405)
+
+    try:
+        body = json.loads(request.body or '{}')
+    except Exception:
+        body = {}
+
+    _default_ollama_url = os.getenv('OLLAMA_URL', 'http://localhost:11434').rstrip('/')
+    _default_ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:7b')
+
+    stock_code = _normalize_stock_code(str(body.get('code', '')))
+    stock_name = str(body.get('name', '')).strip()
+    ollama_model = str(body.get('model', '') or _default_ollama_model).strip() or _default_ollama_model
+    strategy_id = str(body.get('strategy_id', '')).strip()
+    ollama_url = str(body.get('ollama_url', '') or _default_ollama_url).rstrip('/')
+
+    if not stock_code:
+        return JsonResponse({'status': 'error', 'message': '缺少股票代码'}, status=400)
+
+    # ── 构造上下文 ──────────────────────────────────
+    raw_df, _ = _load_raw_kline_df(stock_code)
+    kline_summary = '（无K线数据）'
+    current_price = None
+
+    if raw_df is not None and not raw_df.empty:
+        if '日期' in raw_df.columns:
+            raw_df.columns = [
+                'date', 'code', 'open', 'close', 'high', 'low',
+                'volume', 'amount', 'amplitude', 'pct_chg', 'chg', 'turnover'
+            ]
+        for col in ['close', 'pct_chg', 'volume']:
+            if col in raw_df.columns:
+                raw_df[col] = pd.to_numeric(raw_df[col], errors='coerce')
+        recent = raw_df.tail(20)
+        rows = []
+        for _, row in recent.iterrows():
+            try:
+                rows.append(
+                    f"{str(row.get('date', ''))[:10]} "
+                    f"收:{float(row['close']):.2f} "
+                    f"涨:{float(row['pct_chg']):+.2f}% "
+                    f"量:{float(row['volume']):.0f}"
+                )
+            except Exception:
+                pass
+        if rows:
+            kline_summary = '\n'.join(rows)
+        try:
+            current_price = float(raw_df.iloc[-1]['close'])
+        except Exception:
+            pass
+
+    backtest_summary = ''
+    if strategy_id in REPORT_DIRS:
+        bp = os.path.join(REPORT_DIRS[strategy_id], f'{stock_code}_backtest.json')
+        if os.path.exists(bp):
+            try:
+                with open(bp, 'r', encoding='utf-8') as f:
+                    m = json.load(f)
+                backtest_summary = f"策略({strategy_id})回测总收益率：{m.get('total_return_pct', 0):.2f}%"
+            except Exception:
+                pass
+
+    price_text = f'{current_price:.2f}' if current_price else '未知'
+
+    # 基础 context（无需网络，先构建）
+    _base_context = (
+        f"股票：{stock_name}（{stock_code}）\n"
+        f"当前价格：{price_text}\n"
+        f"{backtest_summary}\n"
+        f"近20日行情（日期 收盘价 涨跌幅 成交量）：\n{kline_summary}"
+    )
+
+    def _call_ollama(prompt):
+        import urllib.request as _req
+        payload = json.dumps(
+            {'model': ollama_model, 'prompt': prompt, 'stream': False},
+            ensure_ascii=False
+        ).encode('utf-8')
+        req = _req.Request(
+            f'{ollama_url}/api/generate',
+            data=payload,
+            headers={'Content-Type': 'application/json'},
+            method='POST',
+        )
+        with _req.urlopen(req, timeout=180) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        return data.get('response', '').strip()
+
+    def event_stream():
+        opinions = {}
+
+        # ── Step 1: 获取新闻与财务数据 ─────────────────────
+        yield f"data: {json.dumps({'role': 'progress', 'message': '正在获取新闻与财务数据...'}, ensure_ascii=False)}\n\n"
+
+        news_summary = '（无新闻数据）'
+        try:
+            import akshare as _ak
+            news_df = _ak.stock_news_em(symbol=stock_code)
+            if news_df is not None and not news_df.empty:
+                col_title = next((c for c in news_df.columns if '标题' in c), news_df.columns[1] if len(news_df.columns) > 1 else news_df.columns[0])
+                col_time = next((c for c in news_df.columns if '时间' in c or '日期' in c), None)
+                rows = []
+                for _, row in news_df.head(5).iterrows():
+                    title = str(row.get(col_title, '')).strip()
+                    t = str(row.get(col_time, '')).strip() if col_time else ''
+                    rows.append(f"[{t}] {title}" if t else title)
+                if rows:
+                    news_summary = '\n'.join(rows)
+        except Exception:
+            pass
+
+        financial_summary = '（无财务数据）'
+        try:
+            import akshare as _ak
+            fin_df = _ak.stock_financial_analysis_indicator(symbol=stock_code, start_year='2023')
+            if fin_df is not None and not fin_df.empty:
+                latest = fin_df.iloc[-1]
+                report_date = str(latest.get('日期', '')).strip()
+                key_fields = [
+                    ('摊薄每股收益(元)', '每股收益'),
+                    ('净资产收益率(%)', 'ROE'),
+                    ('总资产净利润率(%)', '总资产净利率'),
+                    ('销售净利率(%)', '净利率'),
+                    ('营业利润率(%)', '营业利润率'),
+                    ('主营业务收入增长率(%)', '营收增长率'),
+                    ('净利润增长率(%)', '净利润增长率'),
+                    ('资产负债率(%)', '资产负债率'),
+                ]
+                metrics = []
+                for col, label in key_fields:
+                    val = latest.get(col)
+                    if val is not None:
+                        try:
+                            fv = float(val)
+                            if not pd.isna(fv):
+                                metrics.append(f"{label}：{fv:.2f}")
+                        except Exception:
+                            pass
+                if metrics:
+                    financial_summary = f"报告期：{report_date}  " + '  '.join(metrics)
+        except Exception:
+            pass
+
+        context = (
+            _base_context
+            + f"\n\n最新财务指标：\n{financial_summary}"
+            + f"\n\n最新新闻（最近5条）：\n{news_summary}"
+        )
+
+        bull_prompt = (
+            f"你是一位激进的多头分析师。以下是该股票的行情、财务指标和最新新闻：\n{context}\n\n"
+            "请综合以上行情趋势、财务数据和新闻信息，站在多头（看涨）立场，给出3-5条看多理由，并说明买入逻辑。"
+            "语言简洁，字数控制在200字以内，不要重复数据，聚焦判断逻辑。"
+        )
+        bear_prompt = (
+            f"你是一位谨慎的空头分析师。以下是该股票的行情、财务指标和最新新闻：\n{context}\n\n"
+            "请综合以上行情趋势、财务数据和新闻信息，站在空头（看跌）立场，给出3-5条看空理由，并说明回避或观望逻辑。"
+            "语言简洁，字数控制在200字以内，不要重复数据，聚焦风险判断。"
+        )
+
+        # ── Step 2: 多头 / 空头 ───────────────────────────
+        role_label = {'bull': '多头', 'bear': '空头'}
+        for role, prompt in [('bull', bull_prompt), ('bear', bear_prompt)]:
+            label = role_label.get(role, role)
+            yield f"data: {json.dumps({'role': 'progress', 'message': '正在生成' + label + '观点...'}, ensure_ascii=False)}\n\n"
+            try:
+                text = _call_ollama(prompt)
+            except Exception as e:
+                text = f'（调用失败：{e}）'
+            opinions[role] = text
+            yield f"data: {json.dumps({'role': role, 'text': text}, ensure_ascii=False)}\n\n"
+
+        # ── Step 3: 决策者 ────────────────────────────────
+        decision_prompt = (
+            f"你是一位资深投资决策者，必须做出明确、唯一的操作决定，不允许模糊或骑墙。\n\n"
+            f"【股票数据】\n{context}\n\n"
+            f"【多头分析师观点】\n{opinions.get('bull', '（无）')}\n\n"
+            f"【空头分析师观点】\n{opinions.get('bear', '（无）')}\n\n"
+            "综合以上所有信息，严格按照下面格式输出，不要添加任何其他内容：\n\n"
+            "【操作】买入\n"
+            "（或【操作】卖出，或【操作】空仓观望，三选一，只能写一个，禁止写『/』或同时列出多个选项）\n\n"
+            "【决策依据】\n"
+            "1. （最关键的支撑理由，结合财务或新闻数据说明）\n"
+            "2. （第二条理由）\n"
+            "3. （第三条理由，可选）\n\n"
+            "【主要风险】\n"
+            "1. （最大的下行风险）\n"
+            "2. （第二个风险，可选）\n\n"
+            "总字数200字以内。【操作】行只写操作结论本身，不加任何解释。"
+        )
+        yield f"data: {json.dumps({'role': 'progress', 'message': '决策者正在综合多空意见...'}, ensure_ascii=False)}\n\n"
+        try:
+            decision_text = _call_ollama(decision_prompt)
+        except Exception as e:
+            decision_text = f'（决策失败：{e}）'
+        yield f"data: {json.dumps({'role': 'decision', 'text': decision_text}, ensure_ascii=False)}\n\n"
+
+        # ── 持久化保存辩论结果 ─────────────────────────────
+        try:
+            from datetime import datetime as _dt
+            _save_debate_record(stock_code, {
+                'bull': opinions.get('bull', ''),
+                'bear': opinions.get('bear', ''),
+                'decision': decision_text,
+                'model': ollama_model,
+                'updated_at': _dt.now().strftime('%Y-%m-%d %H:%M:%S'),
+            })
+        except Exception:
+            pass
+
+        yield f"data: {json.dumps({'role': 'done'}, ensure_ascii=False)}\n\n"
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response

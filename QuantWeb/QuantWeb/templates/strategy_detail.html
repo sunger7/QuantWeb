@@ -26,7 +26,12 @@
 
         .kline-layout { display: flex; gap: 16px; align-items: stretch; }
         .kline-main { flex: 1; min-width: 0; }
-        #kline-chart { width: 100%; height: 700px; }
+        #kline-chart { width: 100%; height: 700px; cursor: grab; }
+        .sd-board-up { color: #e74c3c; }
+        .sd-board-down { color: #27ae60; }
+        .sd-board-comp-row { cursor: pointer; border-bottom: 1px solid #f3f3f3; }
+        .sd-board-comp-row:hover { background: #f5f7ff !important; }
+        .sd-board-comp-current { background: #fffbe6 !important; }
         .chip-panel { width: 380px; background: #f8f9fa; border: 1px solid #e8ebf2; border-radius: 10px; padding: 12px; overflow: auto; }
         .chip-panel h4 { font-size: 0.95em; margin-bottom: 10px; color: #2f3a56; }
         .chip-meta { font-size: 0.8em; color: #666; line-height: 1.6; margin-bottom: 8px; }
@@ -113,6 +118,28 @@
         #ml-oc-chart { width:100%; height:320px; margin-top:12px; border:1px solid #edf0f6; border-radius:8px; }
         #ml-sim-kline-chart { width:100%; height:360px; margin-top:12px; border:1px solid #edf0f6; border-radius:8px; }
         #ml-sim-summary { margin-top:10px; padding:10px 12px; background:#f9fbff; border:1px solid #e8edf8; border-radius:8px; font-size:.86em; color:#445074; line-height:1.7; }
+
+        /* ── Ollama 多空辩论 ── */
+        .debate-panel { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.06); padding:20px; margin-top:24px; }
+        .debate-panel h3 { font-size:1.05em; color:#2f3a56; margin-bottom:14px; }
+        .debate-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+        .debate-toolbar label { font-size:.85em; color:#555; font-weight:600; }
+        .debate-toolbar input[type=text] { padding:7px 10px; border:1px solid #d7dced; border-radius:6px; font-size:.86em; width:180px; }
+        .debate-toolbar button { background:#4361ee; color:#fff; border:none; border-radius:6px; padding:7px 16px; cursor:pointer; font-size:.86em; }
+        .debate-toolbar button:disabled { background:#8e9cc7; cursor:not-allowed; }
+        .debate-status { font-size:.82em; color:#666; }
+        .debate-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+        @media(max-width:900px){ .debate-grid { grid-template-columns:1fr; } }
+        .debate-card { border-radius:10px; padding:14px; min-height:160px; }
+        .debate-card.bull  { background:#fff8f8; border:1.5px solid #f5c6c6; }
+        .debate-card.bear  { background:#f0f7ff; border:1.5px solid #b8d4f5; }
+        .debate-card.decision { background:#f0fff4; border:1.5px solid #a0d9b4; }
+        .debate-card-title { font-weight:700; font-size:.93em; margin-bottom:10px; }
+        .debate-card.bull  .debate-card-title { color:#c0392b; }
+        .debate-card.bear  .debate-card-title { color:#2471a3; }
+        .debate-card.decision .debate-card-title { color:#1e8449; }
+        .debate-card-body { font-size:.86em; line-height:1.65; color:#444; white-space:pre-wrap; word-break:break-word; }
+        .debate-card-body.loading { color:#aaa; font-style:italic; }
     </style>
 </head>
 <body>
@@ -156,14 +183,19 @@
             <button class="tab-btn active" onclick="switchTab('kline', this)">线图</button>
             <button class="tab-btn" onclick="switchTab('compare', this)">策略对比</button>
             <button class="tab-btn" onclick="switchTab('report', this)">回测报告</button>
+            <button class="tab-btn" onclick="switchTab('board', this)">版块</button>
             <button class="tab-btn" onclick="switchTab('ml', this)">ML预测</button>
         </div>
 
         <!-- K线图 -->
         <div class="tab-panel active" id="panel-kline">
             <div class="kline-layout">
-                <div class="kline-main">
+                <div class="kline-main" style="position:relative;">
                     <div id="kline-chart"></div>
+                    <div id="vol-toggle-group" style="position:absolute;top:calc(66% + 4px);left:64px;z-index:10;display:flex;line-height:1;">
+                        <button id="vol-btn-vol" onclick="setVolMode('vol')" style="padding:2px 7px;border:1px solid #bbb;border-right:none;border-radius:3px 0 0 3px;cursor:pointer;background:#e0e0e0;font-size:11px;font-weight:bold;color:#333;">量</button>
+                        <button id="vol-btn-turn" onclick="setVolMode('turn')" style="padding:2px 7px;border:1px solid #bbb;border-radius:0 3px 3px 0;cursor:pointer;background:#f8f8f8;font-size:11px;color:#888;">换手</button>
+                    </div>
                 </div>
                 <div class="chip-panel" id="chip-panel">
                     <h4>筹码分布（当前时段）</h4>
@@ -237,6 +269,59 @@
             <iframe class="report-frame" src="{{ report_url }}"></iframe>
             {% else %}
             <div class="no-data">暂无回测报告，请先运行策略回测生成报告文件。</div>
+            {% endif %}
+        </div>
+
+        <!-- 版块信息 -->
+        <div class="tab-panel" id="panel-board">
+            {% if stock_boards %}
+            {% for board in stock_boards %}
+            <div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:20px;overflow:hidden;">
+                <div style="padding:14px 18px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                    <div style="font-size:1.05em;font-weight:700;color:#2c3553;">{{ board.board_name }}
+                        {% if board.board_code %}<span style="font-size:0.78em;color:#999;font-weight:400;margin-left:6px;">{{ board.board_code }}</span>{% endif %}
+                    </div>
+                    <div style="display:flex;gap:18px;font-size:0.85em;flex-wrap:wrap;">
+                        <span>涨跌幅：<strong class="{% if board.pct_change and board.pct_change >= 0 %}sd-board-up{% else %}sd-board-down{% endif %}">{% if board.pct_change != None %}{{ board.pct_change }}%{% else %}—{% endif %}</strong></span>
+                        <span>领涨股：<strong>{{ board.leading_stock|default:'—' }}{% if board.leading_stock_pct != None %} ({{ board.leading_stock_pct }}%){% endif %}</strong></span>
+                        <span>涨家数：<strong style="color:#e74c3c;">{{ board.rise_count|default:'—' }}</strong></span>
+                        <span>跌家数：<strong style="color:#27ae60;">{{ board.fall_count|default:'—' }}</strong></span>
+                        {% if board.turnover_rate != None %}<span>换手率：<strong>{{ board.turnover_rate }}%</strong></span>{% endif %}
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:0.86em;">
+                        <thead>
+                            <tr style="background:#f8f9fa;">
+                                <th style="padding:9px 12px;text-align:left;color:#666;font-weight:600;white-space:nowrap;">代码</th>
+                                <th style="padding:9px 12px;text-align:left;color:#666;font-weight:600;white-space:nowrap;">名称</th>
+                                <th style="padding:9px 12px;text-align:right;color:#666;font-weight:600;white-space:nowrap;">最新价</th>
+                                <th style="padding:9px 12px;text-align:right;color:#666;font-weight:600;white-space:nowrap;">涨跌幅</th>
+                                <th style="padding:9px 12px;text-align:right;color:#666;font-weight:600;white-space:nowrap;">换手率</th>
+                                <th style="padding:9px 12px;text-align:right;color:#666;font-weight:600;white-space:nowrap;">市盈率(TTM)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in board.components %}
+                            <tr class="sd-board-comp-row{% if c.code == stock_code %} sd-board-comp-current{% endif %}" data-code="{{ c.code }}">
+                                <td style="padding:9px 12px;white-space:nowrap;">{{ c.code }}</td>
+                                <td style="padding:9px 12px;white-space:nowrap;">{{ c.name }}{% if c.code == stock_code %} <span style="font-size:0.78em;background:#4361ee;color:#fff;border-radius:3px;padding:1px 5px;">当前</span>{% endif %}</td>
+                                <td style="padding:9px 12px;text-align:right;white-space:nowrap;">{% if c.latest_price != None %}{{ c.latest_price }}{% else %}—{% endif %}</td>
+                                <td style="padding:9px 12px;text-align:right;white-space:nowrap;" class="{% if c.pct_change != None and c.pct_change >= 0 %}sd-board-up{% else %}sd-board-down{% endif %}">{% if c.pct_change != None %}{{ c.pct_change }}%{% else %}—{% endif %}</td>
+                                <td style="padding:9px 12px;text-align:right;white-space:nowrap;">{% if c.turnover_rate != None %}{{ c.turnover_rate }}%{% else %}—{% endif %}</td>
+                                <td style="padding:9px 12px;text-align:right;white-space:nowrap;">{% if c.pe_ttm != None %}{{ c.pe_ttm }}{% else %}—{% endif %}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" style="padding:20px;color:#999;text-align:center;">暂无成分股数据</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+            {% if board_updated_at %}<div style="font-size:0.78em;color:#bbb;text-align:right;margin-top:4px;">数据更新：{{ board_updated_at }}</div>{% endif %}
+            {% else %}
+            <div style="padding:40px;text-align:center;color:#999;font-size:0.9em;">暂无版块数据，请先在主页运行板块更新。</div>
             {% endif %}
         </div>
 
@@ -335,9 +420,55 @@
             <div class="result" id="ai-guide-result">{% if ai_guide_saved_text %}加载中...{% else %}点击按钮后将返回 AI 选股参考内容。{% endif %}</div>
             <div class="link" id="ai-guide-link">{% if ai_guide_saved_google_url %}Google 搜索：<a href="{{ ai_guide_saved_google_url }}" target="_blank" rel="noopener">打开结果</a>{% endif %}</div>
         </div>
+
+        <!-- Ollama 多空辩论 -->
+        <div class="debate-panel">
+            <h3>🧠 多空辩论（Ollama LLM）</h3>
+            <div class="debate-toolbar">
+                <label>模型</label>
+                <input id="debate-model" type="text" value="{{ ollama_model }}" placeholder="ollama 模型名，如 qwen2.5:7b">
+                <label>地址</label>
+                <input id="debate-ollama-url" type="text" value="{{ ollama_url }}" style="width:210px;">
+                <button id="debate-btn" onclick="startDebate()">🔥 开始辩论</button>
+                <span class="debate-status" id="debate-status">设置好模型后点击按钮，将依次生成多头→空头→决策意见。</span>
+            </div>
+            <div id="debate-saved-time" style="font-size:.78em;color:#888;margin-bottom:10px;{% if not debate_saved_updated_at %}display:none;{% endif %}">
+                上次生成：{{ debate_saved_updated_at }}{% if debate_saved_model %} &nbsp;·&nbsp; 模型：{{ debate_saved_model }}{% endif %}
+            </div>
+            <div class="debate-grid">
+                <div class="debate-card bull">
+                    <div class="debate-card-title">📈 多头观点</div>
+                    <div class="debate-card-body{% if not debate_saved_updated_at %} loading{% endif %}" id="debate-bull-text">点击"开始辩论"后生成...</div>
+                </div>
+                <div class="debate-card bear">
+                    <div class="debate-card-title">📉 空头观点</div>
+                    <div class="debate-card-body{% if not debate_saved_updated_at %} loading{% endif %}" id="debate-bear-text">点击"开始辩论"后生成...</div>
+                </div>
+                <div class="debate-card decision">
+                    <div class="debate-card-title">⚖️ 决策建议</div>
+                    <div class="debate-card-body{% if not debate_saved_updated_at %} loading{% endif %}" id="debate-decision-text">综合多空意见后生成...</div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
+    // ── 预填辩论历史 ─────────────────────────────────────
+    (function() {
+        var savedBull     = {{ debate_saved_bull_json|safe }};
+        var savedBear     = {{ debate_saved_bear_json|safe }};
+        var savedDecision = {{ debate_saved_decision_json|safe }};
+        function fill(id, text) {
+            if (!text) return;
+            var el = document.getElementById(id);
+            if (el) { el.textContent = text; el.className = 'debate-card-body'; }
+        }
+        fill('debate-bull-text',     savedBull);
+        fill('debate-bear-text',     savedBear);
+        fill('debate-decision-text', savedDecision);
+    })();
+
     var __ymdPickerState = { panel: null, target: null, yearSel: null, monthSel: null, daySel: null };
 
     function _daysInMonth(y, m) {
@@ -517,12 +648,11 @@
         if (!__detailNavCtx || !Array.isArray(__detailNavCtx.items)) return;
         var items = __detailNavCtx.items;
         if (targetIdx < 0 || targetIdx >= items.length) return;
-        var item = items[targetIdx] || {};
-        var code = item.code || '';
-        var sid = item.strategy_id || '{{ strategy_id }}';
+        var code = items[targetIdx] || '';
+        var sid = '{{ strategy_id }}';
         if (!code || !sid) return;
         var qs = '?nav_key=' + encodeURIComponent(__detailNavCtx.key) + '&nav_idx=' + targetIdx;
-        window.location.href = '/strategy/' + encodeURIComponent(sid) + '/' + encodeURIComponent(code) + '/' + qs;
+        window.location.href = '/strategy/' + encodeURIComponent(sid) + '/' + encodeURIComponent(code['code']) + '/' + qs;
     }
 
     function gotoPrevStock() {
@@ -559,7 +689,17 @@
             if (data.status === 'ok') {
                 statusEl.textContent = '✅ ' + data.message;
                 statusEl.style.color = '#27ae60';
-                setTimeout(function() { window.location.reload(); }, 1500);
+                setTimeout(function() {
+                    fetch("{% url 'get_kline_data' %}?code={{ stock_code }}")
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        if (d.kline && d.kline.length) {
+                            refreshKlineChart(d.kline);
+                            statusEl.textContent = '✅ K线已刷新';
+                        }
+                    })
+                    .catch(function() {});
+                }, 800);
             } else {
                 statusEl.textContent = '❌ ' + data.message;
                 statusEl.style.color = '#e74c3c';
@@ -1589,7 +1729,12 @@
             };
         }
 
+        window.__mainBuyMarkers = buyMarkers;
+        window.__mainSellMarkers = sellMarkers;
+        window.__mainMarkerRenderItem = markerRenderItem;
+
         const chart = echarts.init(document.getElementById('kline-chart'));
+        window.__mainKlineChart = chart;
         const option = {
             tooltip: {
                 trigger: 'axis',
@@ -1597,26 +1742,24 @@
             },
             legend: {
                 data: ['K线', 'MA5', 'MA10', 'MA30', 'MA60', 'VWAP', '买入', '卖出', '成交量', '换手率'],
-                selected: { 'MA5': true, 'MA10': true, 'MA30': true, 'MA60': false, 'VWAP': true, '换手率': true },
+                selected: { 'MA5': true, 'MA10': true, 'MA30': true, 'MA60': false, 'VWAP': true, '换手率': false },
             },
             grid: [
                 { left: 60, right: 40, top: 60, height: '50%' },
-                { left: 60, right: 40, top: '66%', height: '11%' },
-                { left: 60, right: 40, top: '81%', height: '11%' },
+                { left: 60, right: 40, top: '66%', height: '22%' },
             ],
             xAxis: [
                 { type: 'category', data: dates, gridIndex: 0, boundaryGap: true, axisLine: { lineStyle: { color: '#ccc' } }, axisLabel: { fontSize: 11 } },
                 { type: 'category', data: dates, gridIndex: 1, boundaryGap: true, axisLabel: { show: false } },
-                { type: 'category', data: dates, gridIndex: 2, boundaryGap: true, axisLabel: { show: false } },
             ],
             yAxis: [
                 { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: '#eee' } } },
                 { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { show: false } },
-                { scale: true, gridIndex: 2, splitLine: { show: false }, axisLabel: { formatter: '{value}%' } },
+                { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { show: false }, position: 'right' },
             ],
             dataZoom: [
-                { type: 'inside', xAxisIndex: [0, 1, 2], start: mlZoomStart, end: mlZoomEnd },
-                { type: 'slider', xAxisIndex: [0, 1, 2], start: mlZoomStart, end: mlZoomEnd, top: '94%' },
+                { type: 'inside', xAxisIndex: [0, 1], start: mlZoomStart, end: mlZoomEnd },
+                { type: 'slider', xAxisIndex: [0, 1], start: mlZoomStart, end: mlZoomEnd, top: '94%' },
             ],
             series: [
                 {
@@ -1698,7 +1841,7 @@
                     name: '换手率',
                     type: 'bar',
                     data: turnovers,
-                    xAxisIndex: 2,
+                    xAxisIndex: 1,
                     yAxisIndex: 2,
                     itemStyle: {
                         opacity: 0.55,
@@ -1713,7 +1856,82 @@
                 },
             ],
         };
+        window.__volVolumes = volumes;
+        window.__volTurnovers = turnovers;
+        window.__volMode = 'vol';
         chart.setOption(option);
+
+        // Drag-to-pan: 按住左键左右拖动平移K线图，滚轮仍为缩放
+        (function() {
+            var zr = chart.getZr();
+            var dom = chart.getDom();
+            var drag = { on: false, lastX: 0 };
+
+            zr.on('mousedown', function(e) {
+                // slider 区域（top:94%）的点击交还给 ECharts 处理，不激活 drag-to-pan
+                if (e.offsetY > chart.getHeight() * 0.92) return;
+                drag.on = true;
+                drag.lastX = e.offsetX;
+                dom.style.cursor = 'grabbing';
+            });
+
+            zr.on('mousemove', function(e) {
+                if (!drag.on) return;
+                var dx = e.offsetX - drag.lastX;
+                drag.lastX = e.offsetX;
+                if (!dx) return;
+                var opt = chart.getOption();
+                var dz = (opt.dataZoom || [])[0] || {};
+                var s = +(dz.start || 0), en = +(dz.end || 100);
+                var span = en - s;
+                var shift = -(dx / chart.getWidth()) * 100;
+                var ns = Math.max(0, Math.min(100 - span, s + shift));
+                chart.dispatchAction({ type: 'dataZoom', dataZoomIndex: 0, start: ns, end: ns + span });
+            });
+
+            zr.on('mouseup', function() {
+                drag.on = false;
+                dom.style.cursor = 'default';
+            });
+
+            zr.on('globalout', function() {
+                drag.on = false;
+                dom.style.cursor = 'default';
+            });
+        })();
+
+    // 版块成分股点击跳转
+    document.querySelectorAll('.sd-board-comp-row').forEach(function(row) {
+        row.addEventListener('click', function() {
+            var code = row.getAttribute('data-code');
+            if (!code) return;
+            var allRows = Array.from(document.querySelectorAll('.sd-board-comp-row'));
+            var items = allRows.map(function(r) {
+                return { code: r.getAttribute('data-code'), strategy_id: '{{ strategy_id }}' };
+            }).filter(function(x) { return x.code; });
+            var idx = items.findIndex(function(x) { return x.code === code; });
+            _saveNavAndOpen(items, idx, '{{ strategy_id }}', code);
+        });
+    });
+
+        window.setVolMode = function(mode) {
+            var ch = window.__mainKlineChart;
+            if (!ch) return;
+            window.__volMode = mode;
+            if (mode === 'vol') {
+                ch.dispatchAction({ type: 'legendSelect', name: '成交量' });
+                ch.dispatchAction({ type: 'legendUnSelect', name: '换手率' });
+                ch.setOption({ yAxis: [{}, { axisLabel: { show: false } }, { axisLabel: { show: false } }] });
+            } else {
+                ch.dispatchAction({ type: 'legendUnSelect', name: '成交量' });
+                ch.dispatchAction({ type: 'legendSelect', name: '换手率' });
+                ch.setOption({ yAxis: [{}, { axisLabel: { show: false } }, { axisLabel: { show: true, formatter: '{value}%' } }] });
+            }
+            var btnVol = document.getElementById('vol-btn-vol');
+            var btnTurn = document.getElementById('vol-btn-turn');
+            if (btnVol) { btnVol.style.background = mode === 'vol' ? '#e0e0e0' : '#f8f8f8'; btnVol.style.fontWeight = mode === 'vol' ? 'bold' : 'normal'; btnVol.style.color = mode === 'vol' ? '#333' : '#888'; }
+            if (btnTurn) { btnTurn.style.background = mode === 'turn' ? '#e0e0e0' : '#f8f8f8'; btnTurn.style.fontWeight = mode === 'turn' ? 'bold' : 'normal'; btnTurn.style.color = mode === 'turn' ? '#333' : '#888'; }
+        };
 
         function renderMlSimKline() {
             const mlChartEl = document.getElementById('ml-sim-kline-chart');
@@ -1992,6 +2210,103 @@
             });
         }
 
+        // ── Ollama 多空辩论 ──────────────────────────────
+        function startDebate() {
+            var btn = document.getElementById('debate-btn');
+            var statusEl = document.getElementById('debate-status');
+            var bullEl = document.getElementById('debate-bull-text');
+            var bearEl = document.getElementById('debate-bear-text');
+            var decisionEl = document.getElementById('debate-decision-text');
+            var model = (document.getElementById('debate-model').value || '').trim() || 'qwen2.5:7b';
+            var ollamaUrl = (document.getElementById('debate-ollama-url').value || '').trim() || 'http://localhost:11434';
+
+            btn.disabled = true;
+            btn.textContent = '辩论中...';
+            statusEl.textContent = '正在连接 Ollama，请稍候...';
+            statusEl.style.color = '#4361ee';
+
+            bullEl.textContent = '生成中...';
+            bullEl.className = 'debate-card-body loading';
+            bearEl.textContent = '等待中...';
+            bearEl.className = 'debate-card-body loading';
+            decisionEl.textContent = '等待多空意见后生成...';
+            decisionEl.className = 'debate-card-body loading';
+
+            fetch("{% url 'ollama_debate' %}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    code: '{{ stock_code }}',
+                    name: '{{ stock_name }}',
+                    strategy_id: '{{ strategy_id }}',
+                    model: model,
+                    ollama_url: ollamaUrl,
+                })
+            }).then(function(resp) {
+                var reader = resp.body.getReader();
+                var decoder = new TextDecoder('utf-8');
+                var buf = '';
+
+                function read() {
+                    reader.read().then(function(result) {
+                        if (result.done) {
+                            btn.disabled = false;
+                            btn.textContent = '🔥 开始辩论';
+                            statusEl.textContent = '✅ 辩论完成';
+                            statusEl.style.color = '#27ae60';
+                            return;
+                        }
+                        buf += decoder.decode(result.value, {stream: true});
+                        var lines = buf.split('\n');
+                        buf = lines.pop();
+                        lines.forEach(function(line) {
+                            if (!line.startsWith('data: ')) return;
+                            try {
+                                var ev = JSON.parse(line.slice(6));
+                                if (ev.role === 'progress') {
+                                    statusEl.textContent = ev.message || '';
+                                    statusEl.style.color = '#4361ee';
+                                } else if (ev.role === 'bull') {
+                                    bullEl.textContent = ev.text || '（无内容）';
+                                    bullEl.className = 'debate-card-body';
+                                } else if (ev.role === 'bear') {
+                                    bearEl.textContent = ev.text || '（无内容）';
+                                    bearEl.className = 'debate-card-body';
+                                } else if (ev.role === 'decision') {
+                                    decisionEl.textContent = ev.text || '（无内容）';
+                                    decisionEl.className = 'debate-card-body';
+                                } else if (ev.role === 'done') {
+                                    btn.disabled = false;
+                                    btn.textContent = '🔥 开始辩论';
+                                    statusEl.textContent = '✅ 辩论完成，已保存';
+                                    statusEl.style.color = '#27ae60';
+                                    var savedTimeEl = document.getElementById('debate-saved-time');
+                                    if (savedTimeEl) {
+                                        var now = new Date();
+                                        var ts = now.getFullYear() + '-'
+                                            + String(now.getMonth()+1).padStart(2,'0') + '-'
+                                            + String(now.getDate()).padStart(2,'0') + ' '
+                                            + String(now.getHours()).padStart(2,'0') + ':'
+                                            + String(now.getMinutes()).padStart(2,'0') + ':'
+                                            + String(now.getSeconds()).padStart(2,'0');
+                                        savedTimeEl.textContent = '上次生成：' + ts + ' \u00b7 模型：' + model;
+                                        savedTimeEl.style.display = '';
+                                    }
+                                }
+                            } catch(e) {}
+                        });
+                        read();
+                    });
+                }
+                read();
+            }).catch(function(err) {
+                btn.disabled = false;
+                btn.textContent = '🔥 开始辩论';
+                statusEl.textContent = '❌ 请求失败：' + err;
+                statusEl.style.color = '#e74c3c';
+            });
+        }
+
         updateChipPanelByIndex(dates.length - 1);
         chart.on('updateAxisPointer', function(evt) {
             const axesInfo = evt.axesInfo || [];
@@ -2011,6 +2326,88 @@
             if (mlOcChart) mlOcChart.resize();
             if (mlSimChart) mlSimChart.resize();
         });
+    }
+
+    function refreshKlineChart(newKlineArr) {
+        var ch = window.__mainKlineChart;
+        if (!ch || !Array.isArray(newKlineArr) || newKlineArr.length === 0) return;
+
+        var newDates = newKlineArr.map(function(r) { return r.date; });
+        var newOhlc = newKlineArr.map(function(r) { return [r.open, r.close, r.low, r.high]; });
+        var newVolumes = newKlineArr.map(function(r) { return r.volume; });
+        var newTurnovers = newKlineArr.map(function(r) { return r.turnover; });
+        var newClose = newKlineArr.map(function(r) { return r.close; });
+
+        function _calcMA(prices, period) {
+            var result = [];
+            for (var i = 0; i < prices.length; i++) {
+                if (i < period - 1) { result.push(null); continue; }
+                var sum = 0;
+                for (var j = 0; j < period; j++) sum += prices[i - j];
+                result.push(+(sum / period).toFixed(2));
+            }
+            return result;
+        }
+        function _calcVWAP(prices, vols, period) {
+            var result = [];
+            for (var i = 0; i < prices.length; i++) {
+                if (i < period - 1) { result.push(null); continue; }
+                var pvSum = 0, volSum = 0;
+                for (var j = i - period + 1; j <= i; j++) {
+                    var p = Number(prices[j]), v = Number(vols[j]);
+                    if (!Number.isFinite(p) || !Number.isFinite(v) || v <= 0) continue;
+                    pvSum += p * v; volSum += v;
+                }
+                result.push(volSum > 0 ? +(pvSum / volSum).toFixed(2) : null);
+            }
+            return result;
+        }
+
+        var newMa5 = _calcMA(newClose, 5);
+        var newMa10 = _calcMA(newClose, 10);
+        var newMa30 = _calcMA(newClose, 30);
+        var newMa60 = _calcMA(newClose, 60);
+        var newVwap = _calcVWAP(newClose, newVolumes, 20);
+
+        var defaultWindow = 50;
+        var zoomStart = newDates.length > defaultWindow
+            ? Math.max(0, ((newDates.length - defaultWindow) / newDates.length) * 100)
+            : 0;
+
+        var capturedOhlc = newOhlc;
+        var maColors = { 'MA5': '#f39c12', 'MA10': '#e74c8b', 'MA30': '#3498db', 'MA60': '#9b59b6' };
+        var bm = window.__mainBuyMarkers || [];
+        var sm = window.__mainSellMarkers || [];
+        var rri = window.__mainMarkerRenderItem || function() { return null; };
+
+        ch.setOption({
+            xAxis: [
+                { data: newDates },
+                { data: newDates },
+            ],
+            dataZoom: [
+                { start: zoomStart, end: 100 },
+                { start: zoomStart, end: 100 },
+            ],
+            series: [
+                { name: 'K线', data: newOhlc },
+                { name: 'MA5', data: newMa5 },
+                { name: 'MA10', data: newMa10 },
+                { name: 'MA30', data: newMa30 },
+                { name: 'MA60', data: newMa60 },
+                { name: 'VWAP', data: newVwap },
+                { name: '买入', data: bm, renderItem: rri },
+                { name: '卖出', data: sm, renderItem: rri },
+                { name: '成交量', data: newVolumes, itemStyle: { opacity: 0.4, color: function(params) {
+                    var k = capturedOhlc[params.dataIndex] || [];
+                    return k[1] >= k[0] ? '#e74c3c' : '#27ae60';
+                }}},
+                { name: '换手率', data: newTurnovers, itemStyle: { opacity: 0.55, color: function(params) {
+                    var k = capturedOhlc[params.dataIndex] || [];
+                    return k[1] >= k[0] ? '#e74c3c' : '#27ae60';
+                }}},
+            ],
+        }, false);
     }
     </script>
 </body>

@@ -22,7 +22,7 @@ class DualMAStrategy(Strategy):
         # 从数据中获取symbol
         pass
 
-            
+
             # 从bar数据中动态获取symbol时无需显式订阅
 
     def on_bar(self, bar):

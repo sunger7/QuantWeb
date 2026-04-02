@@ -51,6 +51,11 @@
         .bottom-nav a:hover { background: #4361ee; color: #fff; }
         .wl-section { margin-bottom: 40px; }
         .wl-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+        .wl-collapse-btn { background: none; border: none; cursor: pointer; font-size: 1em; padding: 0 4px; color: #4361ee; transition: transform .25s; display: inline-block; line-height: 1; }
+        .wl-section.collapsed .wl-collapse-btn { transform: rotate(-90deg); }
+        .wl-section.collapsed .wl-toolbar { display: none; }
+        .wl-body { overflow: hidden; transition: max-height .3s ease, opacity .3s ease; max-height: 4000px; opacity: 1; }
+        .wl-section.collapsed .wl-body { max-height: 0; opacity: 0; }
         .wl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
         .wl-item { background: #fff; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); cursor: pointer; transition: transform .2s, box-shadow .2s; text-decoration: none; color: inherit; border: 2px solid transparent; }
         .wl-item:hover { transform: translateY(-4px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); border-color: #4361ee; }
@@ -83,37 +88,6 @@
         .wl-list tr { cursor: pointer; transition: background .15s; }
         .wl-list tbody tr:hover { background: #f5f7ff; }
 
-        .board-section { margin-bottom: 40px; }
-        .board-header { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; }
-        .board-toggle-btn { border:1px solid #d9deea; background:#fff; color:#445; border-radius:8px; padding:6px 12px; font-size:0.82em; cursor:pointer; }
-        .board-toggle-btn:hover { background:#f4f6fb; }
-        .board-update-btn { border:1px solid #4361ee; background:#4361ee; color:#fff; border-radius:8px; padding:6px 12px; font-size:0.82em; cursor:pointer; }
-        .board-update-btn:disabled { background:#8e9cc7; border-color:#8e9cc7; cursor:not-allowed; }
-        .board-update-result { font-size:0.8em; color:#666; margin-left:8px; }
-        .board-progress { display:none; margin-top:8px; background:#e9ecef; border-radius:6px; height:18px; overflow:hidden; position:relative; }
-        .board-progress-fill { height:100%; background:linear-gradient(90deg, #4361ee, #3a56d4); width:0%; transition:width .25s ease; }
-        .board-progress-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:0.75em; color:#2c3553; }
-        .board-tabs { display: inline-flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
-        .board-tab-btn { border: none; background: #fff; padding: 8px 16px; cursor: pointer; font-size: 0.9em; color: #555; }
-        .board-tab-btn.active { background: #4361ee; color: #fff; }
-        .board-panel { display: none; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
-        .board-panel.active { display: flex; min-height: 420px; }
-        .board-left { width: 50%; border-right: 1px solid #f0f0f0; overflow: auto; }
-        .board-right { width: 50%; overflow: auto; }
-        .board-table { width: 100%; border-collapse: collapse; }
-        .board-table th, .board-table td { padding: 10px 12px; border-bottom: 1px solid #f3f3f3; font-size: 0.86em; text-align: left; white-space: nowrap; }
-        .board-table th { background: #f8f9fa; color: #666; }
-        .board-row { cursor: pointer; }
-        .board-row:hover { background: #f5f7ff; }
-        .board-row.active { background: #eef3ff; }
-        .board-comp-row { cursor: pointer; }
-        .board-comp-row:hover { background: #f7f9ff; }
-        .board-up { color: #e74c3c; }
-        .board-down { color: #27ae60; }
-        .board-meta { padding: 10px 12px; font-size: 0.82em; color: #666; border-bottom: 1px solid #f0f0f0; }
-        .board-sort-btn { margin-left: 8px; border: 1px solid #d9deea; background: #fff; color: #445; border-radius: 6px; padding: 3px 10px; font-size: 0.78em; cursor: pointer; }
-        .board-sort-btn:hover { background: #f4f6fb; }
-        .board-empty { padding: 24px; color: #999; font-size: 0.88em; }
     </style>
 </head>
 <body>
@@ -218,7 +192,10 @@
         <!-- 自选股票 -->
         <div class="wl-section">
             <div class="wl-header">
-                <div class="section-title">⭐ 自选股票</div>
+                <div class="section-title" style="cursor:pointer;user-select:none;" onclick="toggleWatchlistCollapse()">
+                    <button class="wl-collapse-btn" aria-label="折叠/展开" tabindex="-1">▼</button>
+                    ⭐ 自选股票
+                </div>
                 <div class="wl-toolbar">
                     <button class="wl-update-btn" id="wl-update-btn" onclick="updateWatchlistData(this)">🔄 一键更新自选</button>
                     <button class="wl-update-btn" id="wl-ml-recalc-all-btn" onclick="recalcAllWatchlistMl(this)">🧠 重算全部ML</button>
@@ -240,6 +217,7 @@
                     </div>
                 </div>
             </div>
+            <div class="wl-body" id="wl-body">
             {% if watchlist_items %}
             <!-- 卡片模式 -->
             <div class="wl-grid" id="wl-grid">
@@ -351,71 +329,9 @@
             {% else %}
             <div class="wl-empty">暂无自选股票，请在策略分析页添加自选。</div>
             {% endif %}
+            </div>{# /wl-body #}
         </div>
 
-        <div class="board-section">
-            <div class="board-header">
-                <div class="section-title" style="margin-bottom:0;">🏷️ 板块信息</div>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <button id="board-update-btn" class="board-update-btn" onclick="updateBoardData(this)">🔄 更新板块</button>
-                    <button id="board-visibility-btn" class="board-toggle-btn" onclick="toggleBoardVisibility()">隐藏板块</button>
-                </div>
-            </div>
-            <div class="board-update-result" id="board-update-result"></div>
-            <div class="board-progress" id="board-progress">
-                <div class="board-progress-fill" id="board-progress-fill"></div>
-                <div class="board-progress-text" id="board-progress-text">0%</div>
-            </div>
-            <div class="board-tabs">
-                <button id="board-tab-summary" class="board-tab-btn active" onclick="switchBoardTab('summary')">板块列表</button>
-            </div>
-            <div id="board-panel-summary" class="board-panel active">
-                <div class="board-left">
-                    <div class="board-meta">
-                        数据更新时间：<span id="board-updated-at">{{ board_updated_at|default:'未知' }}</span>
-                        <button class="board-sort-btn" id="board-sort-btn" onclick="toggleBoardSort()">涨跌幅 ↓</button>
-                    </div>
-                    <table class="board-table" id="board-summary-table">
-                        <thead>
-                            <tr>
-                                <th>板块</th>
-                                <th>涨跌幅</th>
-                                <th>领涨股</th>
-                                <th>领涨幅</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for b in board_rows %}
-                            <tr class="board-row" data-board-name="{{ b.board_name }}" onclick="loadBoardComponents(this)">
-                                <td>{{ b.board_name }}</td>
-                                <td class="{% if b.pct_change >= 0 %}board-up{% else %}board-down{% endif %}">{% if b.pct_change != None %}{{ b.pct_change }}%{% else %}—{% endif %}</td>
-                                <td>{{ b.leading_stock|default:'—' }}</td>
-                                <td class="{% if b.leading_stock_pct >= 0 %}board-up{% else %}board-down{% endif %}">{% if b.leading_stock_pct != None %}{{ b.leading_stock_pct }}%{% else %}—{% endif %}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="4" class="board-empty">暂无板块数据，请先运行 `data_download/stock_board.py` 生成 JSON。</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="board-right">
-                    <div class="board-meta" id="board-components-title">点击左侧板块查看成分股</div>
-                    <table class="board-table" id="board-components-table" style="display:none;">
-                        <thead>
-                            <tr>
-                                <th>代码</th>
-                                <th>名称</th>
-                                <th>涨跌幅</th>
-                                <th>换手率</th>
-                                <th>市盈率(TTM)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="board-components-body"></tbody>
-                    </table>
-                    <div class="board-empty" id="board-components-empty">请选择一个板块</div>
-                </div>
-            </div>
-        </div>
 
 
     </div>
@@ -770,123 +686,23 @@
         btn.textContent = '🧠 重算全部ML';
         return false;
     }
-
-    function updateBoardData(btn) {
-        if (!btn || btn.disabled) return;
-        btn.disabled = true;
-        btn.textContent = '启动中...';
-
-        fetch("{% url 'start_board_update' %}", {
-            method: 'POST'
-        }).then(function(resp) {
-            return resp.json();
-        }).then(function(data) {
-            if (!data || !data.task_id) {
-                throw new Error((data && data.message) ? data.message : '启动失败');
-            }
-            localStorage.setItem('board_update_task_id', data.task_id);
-            pollBoardUpdateProgress(data.task_id, true);
-        }).catch(function(err) {
-            var resultEl = document.getElementById('board-update-result');
-            if (resultEl) {
-                resultEl.style.color = '#721c24';
-                resultEl.textContent = '❌ 启动失败：' + err;
-            }
-            btn.disabled = false;
-            btn.textContent = '🔄 更新板块';
-        });
-    }
-
-    var _boardPollTimer = null;
-    function pollBoardUpdateProgress(taskId, immediate) {
-        var resultEl = document.getElementById('board-update-result');
-        var progressWrap = document.getElementById('board-progress');
-        var progressFill = document.getElementById('board-progress-fill');
-        var progressText = document.getElementById('board-progress-text');
-        var updatedAtEl = document.getElementById('board-updated-at');
-        var btn = document.getElementById('board-update-btn');
-
-        if (!taskId) return;
-        if (progressWrap) progressWrap.style.display = 'block';
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = '更新中...';
-        }
-
-        function _pollOnce() {
-            fetch("{% url 'board_update_status' %}?task_id=" + encodeURIComponent(taskId))
-                .then(function(resp) { return resp.json(); })
-                .then(function(data) {
-                    var pct = Math.round(Number(data.progress || 0));
-                    if (progressFill) progressFill.style.width = pct + '%';
-                    if (progressText) progressText.textContent = pct + '% (' + (data.current || 0) + '/' + (data.total || 0) + ')';
-
-                    if (data.status === 'running') {
-                        if (resultEl) {
-                            resultEl.style.color = '#666';
-                            resultEl.textContent = data.message || '正在更新板块数据...';
-                        }
-                        return;
-                    }
-
-                    if (data.status === 'done') {
-                        if (resultEl) {
-                            resultEl.style.color = '#155724';
-                            resultEl.textContent = '✅ ' + (data.message || '板块更新完成');
-                        }
-                        if (updatedAtEl && data.updated_at) updatedAtEl.textContent = data.updated_at;
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.textContent = '🔄 更新板块';
-                        }
-                        localStorage.removeItem('board_update_task_id');
-                        if (_boardPollTimer) {
-                            clearInterval(_boardPollTimer);
-                            _boardPollTimer = null;
-                        }
-                        setTimeout(function() { window.location.reload(); }, 900);
-                        return;
-                    }
-
-                    if (data.status === 'error') {
-                        if (resultEl) {
-                            resultEl.style.color = '#721c24';
-                            resultEl.textContent = '❌ ' + (data.error || data.message || '更新失败');
-                        }
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.textContent = '🔄 更新板块';
-                        }
-                        localStorage.removeItem('board_update_task_id');
-                        if (_boardPollTimer) {
-                            clearInterval(_boardPollTimer);
-                            _boardPollTimer = null;
-                        }
-                    }
-                })
-                .catch(function(err) {
-                    if (resultEl) {
-                        resultEl.style.color = '#721c24';
-                        resultEl.textContent = '❌ 状态查询失败：' + err;
-                    }
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.textContent = '🔄 更新板块';
-                    }
-                    if (_boardPollTimer) {
-                        clearInterval(_boardPollTimer);
-                        _boardPollTimer = null;
-                    }
-                });
-        }
-
-        if (immediate) _pollOnce();
-        if (_boardPollTimer) clearInterval(_boardPollTimer);
-        _boardPollTimer = setInterval(_pollOnce, 1200);
-    }
     </script>
 
     <script>
+    // 自选区折叠/展开
+    function toggleWatchlistCollapse() {
+        var section = document.querySelector('.wl-section');
+        if (!section) return;
+        var collapsed = section.classList.toggle('collapsed');
+        localStorage.setItem('wl-collapsed', collapsed ? '1' : '0');
+    }
+    (function initWatchlistCollapse() {
+        if (localStorage.getItem('wl-collapsed') === '1') {
+            var section = document.querySelector('.wl-section');
+            if (section) section.classList.add('collapsed');
+        }
+    })();
+
     // 视图切换
     function switchView(mode) {
         var grid = document.getElementById('wl-grid');
@@ -1029,22 +845,12 @@
 
     function openWatchlistRowDetail(row) {
         if (!row) return;
-        var directUrl = row.getAttribute('data-detail-url') || '';
-        if (directUrl) {
-            window.location.href = directUrl;
-            return;
-        }
         var code = String(row.getAttribute('data-code') || '').trim();
         var sid = String(row.getAttribute('data-strategy-id') || '').trim();
         if (!code || !sid) return;
-        _buildIndexWatchlistNavContext();
         var navKey = 'detail_nav_index_watchlist';
-        var items = [];
-        try {
-            items = JSON.parse(sessionStorage.getItem(navKey) || '[]');
-        } catch (e) {
-            items = [];
-        }
+        var items = _watchlistItemsFromList();
+        sessionStorage.setItem(navKey, JSON.stringify(items));
         var idx = items.findIndex(function(x) { return x.code === code && x.strategy_id === sid; });
         _saveNavAndOpen(items, idx, sid, code, navKey);
     }
@@ -1098,147 +904,6 @@
         _buildIndexWatchlistNavContext();
     })();
 
-    function switchBoardTab(tabName) {
-        var btn = document.getElementById('board-tab-summary');
-        var panel = document.getElementById('board-panel-summary');
-        if (tabName === 'summary') {
-            if (btn) btn.classList.add('active');
-            if (panel) panel.classList.add('active');
-        }
-    }
-
-    function _setBoardVisibility(visible) {
-        var panel = document.getElementById('board-panel-summary');
-        var tabs = document.querySelector('.board-tabs');
-        var btn = document.getElementById('board-visibility-btn');
-        if (panel) panel.style.display = visible ? 'flex' : 'none';
-        if (tabs) tabs.style.display = visible ? 'inline-flex' : 'none';
-        if (btn) btn.textContent = visible ? '隐藏板块' : '显示板块';
-        localStorage.setItem('board-panel-visible', visible ? '1' : '0');
-    }
-
-    function toggleBoardVisibility() {
-        var panel = document.getElementById('board-panel-summary');
-        var currentVisible = !panel || panel.style.display !== 'none';
-        _setBoardVisibility(!currentVisible);
-    }
-
-    function loadBoardComponents(rowEl) {
-        var boardName = rowEl.getAttribute('data-board-name');
-        if (!boardName) return;
-
-        document.querySelectorAll('.board-row').forEach(function(r) { r.classList.remove('active'); });
-        rowEl.classList.add('active');
-
-        var titleEl = document.getElementById('board-components-title');
-        var tableEl = document.getElementById('board-components-table');
-        var bodyEl = document.getElementById('board-components-body');
-        var emptyEl = document.getElementById('board-components-empty');
-
-        if (titleEl) titleEl.textContent = '加载中：' + boardName;
-        if (tableEl) tableEl.style.display = 'none';
-        if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = '正在加载成分股...'; }
-
-        fetch("{% url 'board_components_api' %}?board_name=" + encodeURIComponent(boardName))
-            .then(function(resp) { return resp.json(); })
-            .then(function(data) {
-                if (!data || data.status !== 'ok') {
-                    throw new Error((data && data.message) ? data.message : '加载失败');
-                }
-                var components = Array.isArray(data.components) ? data.components : [];
-                if (titleEl) titleEl.textContent = data.board_name + '（' + (data.board_code || '-') + '）成分股';
-                if (!components.length) {
-                    if (tableEl) tableEl.style.display = 'none';
-                    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = '暂无成分股数据'; }
-                    return;
-                }
-
-                bodyEl.innerHTML = components.map(function(c) {
-                    var pct = c.pct_change;
-                    var pctClass = (pct !== null && pct !== undefined && Number(pct) >= 0) ? 'board-up' : 'board-down';
-                    var pctText = (pct !== null && pct !== undefined) ? (pct + '%') : '—';
-                    var trText = (c.turnover_rate !== null && c.turnover_rate !== undefined) ? (c.turnover_rate + '%') : '—';
-                    var peText = (c.pe_ttm !== null && c.pe_ttm !== undefined) ? c.pe_ttm : '—';
-                    var detailUrl = c.detail_url || '';
-                    var safeUrl = String(detailUrl).replace(/"/g, '&quot;');
-                    return '<tr class="board-comp-row" data-url="' + safeUrl + '">' 
-                        + '<td>' + (c.code || '-') + '</td>'
-                        + '<td>' + (c.name || '-') + '</td>'
-                        + '<td class="' + pctClass + '">' + pctText + '</td>'
-                        + '<td>' + trText + '</td>'
-                        + '<td>' + peText + '</td>'
-                        + '</tr>';
-                }).join('');
-
-                bodyEl.querySelectorAll('.board-comp-row').forEach(function(row) {
-                    row.addEventListener('click', function() {
-                        var rows = Array.from(bodyEl.querySelectorAll('.board-comp-row'));
-                        var items = rows.map(function(r) {
-                            var parsed = _parseDetailUrl(r.getAttribute('data-url'));
-                            return parsed;
-                        }).filter(function(x) { return x && x.code && x.strategy_id; });
-
-                        var current = _parseDetailUrl(row.getAttribute('data-url'));
-                        if (!current) return;
-                        var idx = items.findIndex(function(x) {
-                            return x.code === current.code && x.strategy_id === current.strategy_id;
-                        });
-                        _saveNavAndOpen(items, idx, current.strategy_id, current.code);
-                    });
-                });
-
-                if (emptyEl) emptyEl.style.display = 'none';
-                if (tableEl) tableEl.style.display = 'table';
-            })
-            .catch(function(err) {
-                if (tableEl) tableEl.style.display = 'none';
-                if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = '加载失败：' + err; }
-                if (titleEl) titleEl.textContent = '点击左侧板块查看成分股';
-            });
-    }
-
-    (function initBoardPanel() {
-        var lastTaskId = localStorage.getItem('board_update_task_id');
-        if (lastTaskId) {
-            pollBoardUpdateProgress(lastTaskId, true);
-        }
-        var visible = localStorage.getItem('board-panel-visible');
-        if (visible === '0') {
-            _setBoardVisibility(false);
-            return;
-        }
-        _setBoardVisibility(true);
-        var firstRow = document.querySelector('#board-summary-table .board-row');
-        if (firstRow) loadBoardComponents(firstRow);
-    })();
-
-    var _boardSortAsc = false;
-    function _boardPctValue(row) {
-        if (!row) return 0;
-        var cell = row.children && row.children[1] ? row.children[1] : null;
-        if (!cell) return 0;
-        var text = String(cell.textContent || '').replace('%', '').trim();
-        var num = parseFloat(text);
-        return Number.isFinite(num) ? num : 0;
-    }
-
-    function toggleBoardSort() {
-        var tbody = document.querySelector('#board-summary-table tbody');
-        var btn = document.getElementById('board-sort-btn');
-        if (!tbody) return;
-        var rows = Array.from(tbody.querySelectorAll('.board-row'));
-        if (!rows.length) return;
-
-        _boardSortAsc = !_boardSortAsc;
-        rows.sort(function(a, b) {
-            var av = _boardPctValue(a);
-            var bv = _boardPctValue(b);
-            return _boardSortAsc ? av - bv : bv - av;
-        });
-        rows.forEach(function(r) { tbody.appendChild(r); });
-
-        if (btn) btn.textContent = _boardSortAsc ? '涨跌幅 ↑' : '涨跌幅 ↓';
-    }
     </script>
 </body>
 </html>

@@ -37,7 +37,7 @@ from tqdm import tqdm
 
 today = pd.to_datetime('today').strftime('%Y%m%d')
 print(f'today:{today}')
-today = '20260309'
+today = '20260317'
 is_complete = False
 while(not is_complete):
     is_complete = True

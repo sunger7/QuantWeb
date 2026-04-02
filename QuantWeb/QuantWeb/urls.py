@@ -28,4 +28,6 @@ urlpatterns = [
     path('ml_trade_simulation/', views.ml_trade_simulation, name='ml_trade_simulation'),
     path('stop_update/', views.stop_update, name='stop_update'),
     path('watchlist/<str:strategy_id>/', views.watchlist_view, name='watchlist'),
+    path('ollama_debate/', views.ollama_debate, name='ollama_debate'),
+    path('get_kline_data/', views.get_kline_data, name='get_kline_data'),
 ]
